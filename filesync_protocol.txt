@@ -1,0 +1,81 @@
+The missing sync.txt from android's ADB.
+
+Message Format:
+  Every message starts with a single 32-bit word. (Everything is little-endian).
+  Depending on that first word, the rest of the data can have various meanings.
+  Messages from the host/desktop to the device always start with a 'request'
+    message of a u32 command, u32 size, and size more bytes that's a filename,
+    directory or symlink.
+  The command here is referred to as 'id' in the code and the 4-letter codes
+    are prefixed by ID_, eg ID_STAT.
+
+  STAT:
+    request:
+      u32 command = 'STAT' == 0x53544154
+      u32 size = len(filename) < 1024
+      u8 data[size] = filename (no null)
+
+    response:
+      struct stat st = lstat(filename)
+      u32 command = 'STAT'
+      u32 mode = st.st_mode
+      u32 size = st.st_size
+      u32 time = st.st_mtime
+
+  LIST:
+    request:
+      u32 command = 'LIST' == 0x4C495354
+      u32 size = len(path) < 1024
+      u8 data[size] = path (no null)
+
+    response:
+    for each filename in listing of path:
+      struct stat st = lstat(filename)
+      u32 command = 'DENT' == 0x44454E54
+      u32 mode = st.st_mode
+      u32 size = st.st_size
+      u32 time = st.st_mtime
+      u32 namelen = len(filename)
+      u8 data[namelen] = filename
+
+    done (device -> host):
+      u32 command = 'DONE' == 0x444F4E45
+      u32[4] = 0
+
+  SEND:
+    struct stat st = lstat(filename)
+    request:
+      fileinfo = sprintf(',%d', st.st_mode)
+      u32 command = 'SEND' == 0x53454E44
+      u32 size = len(filename) + len(fileinfo) < 1024
+      u8 data[size] = filename + fileinfo
+
+    repeated data command (host -> device):
+      u32 command = 'DATA' == 0x44415441
+      u32 size < (64 * 1024)
+      u8 data[size] = file contents
+
+    finish command (host -> device):
+      u32 command = 'DONE' == 0x444F4E45
+      u32 timestamp = st.st_mtime
+
+    response (device -> host):
+      u32 command = 'OKAY' == 0x4F4B4159 or 'FAIL' == 0x4641494C
+      u32 size = 0 if 'OKAY' else len(fail_message)
+      u8 data[] = fail_message
+
+  RECV:
+    request:
+      u32 command = 'RECV' == 0x52454356
+      u32 size = len(filename)
+      u8 data[size] = filename
+
+    repeated data response (device -> host):
+      u32 command = 'DATA' == 0x44415441
+      u32 size < (64 * 1024)
+      u8 data[size] = file contents
+
+    finish response (device -> host):
+      u32 command = 'DONE' == 0x444F4E45
+      u32 size = 0
+

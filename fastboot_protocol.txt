@@ -1,0 +1,32 @@
+Fastboot Protocol Documentation
+
+Fastboot's protocol is similar to ADB in only a few ways. However, to make the
+code simpler to be inside a bootloader, it basically was completely altered.
+
+Commands:
+  getvar:%(variable)s
+  download:%08x
+  verify:%08x
+  flash:%(partition)s
+  erase:%(partition)s
+  oem %(stuff)s
+  boot
+  continue
+  reboot
+  reboot-bootloader
+
+
+Responses:
+  These are 4-64 bytes long. The first 4 bytes is the header, the rest is
+  header-specific but only up to 60 bytes.
+
+  INFO + data[0-60]
+    Arbitrary data returned from the bootloader.
+  OKAY + reason[0-60]
+    Last response, says the command succeeded.
+  FAIL + reason[0-60]
+    Last response, says the command failed.
+  DATA + size[8]
+    Only in response to a download command, says the bootloader is ready to
+    accept `size` amount of data.
+
