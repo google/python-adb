@@ -29,6 +29,8 @@ import gflags
 import usb_exceptions
 
 gflags.DEFINE_integer('timeout_ms', 200, 'Timeout in milliseconds.')
+gflags.DEFINE_list('port_path', [], 'USB port path integers (eg 1,2 or 2,1,1)')
+gflags.DEFINE_string('serial', None, 'USB serial to look for', short_name='s')
 
 FLAGS = gflags.FLAGS
 
@@ -80,6 +82,7 @@ def StartCli(argv, connect_callback, kwarg_callback=None, **connect_kwargs):
 
   try:
     dev = connect_callback(
+        serial=FLAGS.serial, port_path=[int(part) for part in FLAGS.port_path],
         default_timeout_ms=FLAGS.timeout_ms, **connect_kwargs)
   except usb_exceptions.DeviceNotFoundError as e:
     print >> sys.stderr, 'No device found: %s' % e

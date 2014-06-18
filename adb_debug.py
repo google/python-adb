@@ -13,8 +13,8 @@
 # limitations under the License.
 """ADB debugging binary.
 
-Call it similar to how you call android's adb. Takes either --serial to connect
-to a device.
+Call it similar to how you call android's adb. Takes either --serial or
+--port_path to connect to a device.
 """
 import os
 import sys
@@ -25,13 +25,17 @@ import adb
 import common_cli
 
 gflags.DECLARE_key_flag('timeout_ms')
-gflags.DEFINE_string('serial', None, 'USB serial to look for', short_name='s')
+gflags.DECLARE_key_flag('port_path')
+gflags.DECLARE_key_flag('serial')
 
 gflags.DEFINE_multistring('rsa_key_path', '~/.android/adbkey',
                          'RSA key(s) to use')
 gflags.DEFINE_integer('auth_timeout_s', 60,
                      'Seconds to wait for the dialog to be accepted when using '
                      'authenticated ADB.')
+gflags.DEFINE_bool('output_port_path', False,
+                   'Affects the devices command only, outputs the port_path '
+                   'alongside the serial if true.')
 FLAGS = gflags.FLAGS
 
 
@@ -45,10 +49,25 @@ def main(argv):
   else:
     kwargs = {}
 
-  common_cli.StartCli(
-      argv, adb.AdbCommands.ConnectDevice,
-      serial=FLAGS.serial,
-      **kwargs)
+  # To mimic 'adb devices' output like:
+  # ------------------------------
+  # List of devices attached
+  # 015DB7591102001A        device
+  # 015DB75916008005        device
+  # 015DB75910016011        device
+  # ------------------------------
+  if len(argv) == 2 and argv[1] == 'devices':
+    print 'List of devices attached'
+    for device in adb.AdbCommands.Devices():
+      if FLAGS.output_port_path:
+        print '%s\tdevice\t%s' % (
+            device.serial_number,
+            ','.join(str(port) for port in device.port_path))
+      else:
+        print '%s\tdevice' % device.serial_number
+  else:
+    common_cli.StartCli(argv, adb.AdbCommands.ConnectDevice, **kwargs)
+
 
 if __name__ == '__main__':
-  main(sys.argv)
+  main(FLAGS(sys.argv))

@@ -207,9 +207,13 @@ class FastbootCommands(object):
     self._protocol = self.protocol_handler(usb)
 
   @classmethod
-  def ConnectDevice(cls, serial=None, default_timeout_ms=0):
+  def ConnectDevice(cls, port_path=None, serial=None, default_timeout_ms=0):
     """Convenience function to get a fastboot device from usb path or serial."""
-    if serial:
+    if port_path:
+      usb = common.UsbHandle.FromPath(
+          port_path, filter_callback=cls.DeviceIsAvailable,
+          timeout_ms=default_timeout_ms)
+    elif serial:
       usb = common.UsbHandle.FromSerial(
           serial, filter_callback=cls.DeviceIsAvailable,
           timeout_ms=default_timeout_ms)

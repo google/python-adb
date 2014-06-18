@@ -65,9 +65,13 @@ class AdbCommands(object):
 
   @classmethod
   def ConnectDevice(
-      cls, serial=None, default_timeout_ms=None, **kwargs):
+      cls, port_path=None, serial=None, default_timeout_ms=None, **kwargs):
     """Convenience function to get an adb device from usb path or serial."""
-    if serial:
+    if port_path:
+      usb = common.UsbHandle.FromPath(
+          port_path, filter_callback=cls.DeviceIsAvailable,
+          timeout_ms=default_timeout_ms)
+    elif serial:
       usb = common.UsbHandle.FromSerial(
           serial, filter_callback=cls.DeviceIsAvailable,
           timeout_ms=default_timeout_ms)
@@ -117,6 +121,11 @@ class AdbCommands(object):
     # Remove banner and colons after device state (state::banner)
     device_state = device_state.split(':')[0]
     return cls(usb, device_state)
+
+  @classmethod
+  def Devices(cls):
+    """Get a generator of UsbHandle for devices available."""
+    return common.UsbHandle.GetDevices(filter_callback=cls.DeviceIsAvailable)
 
   def GetState(self):
     return self._device_state

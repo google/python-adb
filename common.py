@@ -73,9 +73,9 @@ class UsbHandle(object):
   def Open(self):
     """Opens the USB device for this setting, and claims the interface."""
     # Make sure we close any previous handle open to this usb device.
-    usb_path = tuple(self._device.getPortNumberList())
+    port_path = tuple(self.port_path)
     with self._HANDLE_CACHE_LOCK:
-      old_handle = self._HANDLE_CACHE.get(usb_path)
+      old_handle = self._HANDLE_CACHE.get(port_path)
       if old_handle is not None:
         old_handle.Close()
 
@@ -108,13 +108,17 @@ class UsbHandle(object):
     self._interface_number = iface_number
 
     with self._HANDLE_CACHE_LOCK:
-      self._HANDLE_CACHE[usb_path] = self
+      self._HANDLE_CACHE[port_path] = self
     # When this object is deleted, make sure it's closed.
     weakref.ref(self, self.Close)
 
   @property
   def serial_number(self):
     return self._device.getSerialNumber()
+
+  @property
+  def port_path(self):
+    return [self._device.getBusNumber()] + self._device.getPortNumberList()
 
   def Close(self):
     if self._handle is None:
@@ -167,6 +171,34 @@ class UsbHandle(object):
               self.usb_info, self.Timeout(timeout_ms)), e)
 
   @classmethod
+  def FromPath(cls, port_path, filter_callback, timeout_ms=None):
+    """Find and return device on the given path.
+
+    Args:
+      port_path: USB port path (list of numbers)
+      filter_callback: Function that takes a device and returns if it matches
+          and which setting to use.
+      timeout_ms: Default timeout of commands in milliseconds.
+
+    Returns:
+      An instance of UsbHandle.
+
+    Raises:
+      DeviceNotFoundError: Raised if the device is not available.
+      InvalidConfigurationError: Device on port does not have a matching
+          configuration.
+    """
+    devices = cls.GetDevices(filter_callback, timeout_ms=timeout_ms)
+    for device in devices:
+      if device.port_path == port_path:
+        device.Open()
+        device.FlushBuffers()
+        return device
+
+    raise usb_exceptions.DeviceNotFoundError(
+        'No device on part %s.' % port_path)
+
+  @classmethod
   def FromSerial(cls, serial, filter_callback, timeout_ms=None):
     """Find and return device with the given serial.
 
@@ -214,18 +246,34 @@ class UsbHandle(object):
       InvalidConfigurationError: Device on port does not have a matching
           configuration.
     """
-    def GetDevice():
-      ctx = usb1.USBContext()
-      for device in ctx.getDeviceList(skip_on_error=True):
-        setting = filter_callback(device)
-        if setting is None:
-          continue
+    devices = cls.GetDevices(filter_callback, timeout_ms=timeout_ms)
+    try:
+      usb = next(devices)
+    except StopIteration:
+      raise usb_exceptions.DeviceNotFoundError('No device available.')
+    usb.Open()
+    usb.FlushBuffers()
+    return usb
 
-        # Returns first device on ADB.
-        return device
+  @classmethod
+  def GetDevices(cls, filter_callback, timeout_ms=None):
+    """A generator of UsbHandle for devices available.
 
-    return cls._FromCallback(filter_callback, GetDevice, 'first',
-                             timeout_ms=timeout_ms)
+    Args:
+      filter_callback: Function that takes a device and returns if it matches
+          and which setting to use.
+      timeout_ms: Default timeout of commands in milliseconds.
+
+    Yields:
+      A UsbHandle instance.
+    """
+    ctx = usb1.USBContext()
+    for device in ctx.getDeviceList(skip_on_error=True):
+      setting = filter_callback(device)
+      if setting is None:
+        continue
+
+      yield cls(device, setting, timeout_ms=timeout_ms)
 
   @classmethod
   def _FromCallback(cls, filter_callback, usb_callback, usb_info,
