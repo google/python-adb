@@ -68,7 +68,9 @@ class UsbHandle(object):
       sn = self.serial_number
     except libusb1.USBError:
       sn = ''
-    return '%s %s' % (self._usb_info, sn)
+    if sn and sn != self._usb_info:
+      return '%s %s' % (self._usb_info, sn)
+    return self._usb_info
 
   def Open(self):
     """Opens the USB device for this setting, and claims the interface."""
