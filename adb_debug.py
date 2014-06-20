@@ -24,9 +24,7 @@ import gflags
 import adb
 import common_cli
 
-gflags.DECLARE_key_flag('timeout_ms')
-gflags.DECLARE_key_flag('port_path')
-gflags.DECLARE_key_flag('serial')
+gflags.ADOPT_module_key_flags(common_cli)
 
 gflags.DEFINE_multistring('rsa_key_path', '~/.android/adbkey',
                          'RSA key(s) to use')

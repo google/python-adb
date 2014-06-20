@@ -24,9 +24,7 @@ import progressbar
 import common_cli
 import fastboot
 
-gflags.DECLARE_key_flag('port_path')
-gflags.DECLARE_key_flag('serial')
-gflags.DECLARE_key_flag('timeout_ms')
+gflags.ADOPT_module_key_flags(common_cli)
 
 FLAGS = gflags.FLAGS
 
