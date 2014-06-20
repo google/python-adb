@@ -23,6 +23,7 @@ import cStringIO
 import inspect
 import re
 import sys
+import types
 
 import gflags
 
@@ -116,17 +117,19 @@ def StartCli(argv, connect_callback, kwarg_callback=None, **connect_kwargs):
       result = method(' '.join(argv), **kwargs)
     else:
       result = method(*argv, **kwargs)
+
+    if result is not None:
+      if isinstance(result, cStringIO.OutputType):
+        sys.stdout.write(result.getvalue())
+      elif isinstance(result, (list, types.GeneratorType)):
+        for r in result:
+          sys.stdout.write(r)
+      else:
+        sys.stdout.write(result)
+    sys.stdout.write('\n')
   except Exception as e:  # pylint: disable=broad-except
     sys.stdout.write(str(e))
     return
   finally:
     dev.Close()
-
-  if result is not None:
-    if isinstance(result, cStringIO.OutputType):
-      result = result.getvalue()
-    elif isinstance(result, list):
-      result = '\n'.join(str(r) for r in result)
-    sys.stdout.write(result)
-  sys.stdout.write('\n')
 

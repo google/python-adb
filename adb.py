@@ -25,7 +25,6 @@ All timeouts are in milliseconds.
 import cStringIO
 import os
 import socket
-import struct
 
 from M2Crypto import RSA
 
@@ -233,3 +232,8 @@ class AdbCommands(object):
         self._usb, service='shell', command=command,
         timeout_ms=timeout_ms)
 
+  def Logcat(self, options, timeout_ms=None):
+    """Run 'shell logcat' and stream the output to stdout."""
+    return self.protocol_handler.StreamingCommand(
+        self._usb, service='shell', command='logcat %s' % options,
+        timeout_ms=timeout_ms)

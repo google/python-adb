@@ -24,9 +24,7 @@ import usb1
 
 import usb_exceptions
 
-DEFAULT_TIMEOUT_MS = 100
-
-SYSFS_USB_BASE_PATH = '/sys/bus/usb/devices/'
+DEFAULT_TIMEOUT_MS = 1000
 
 _LOG = logging.getLogger('android_usb')
 
@@ -228,7 +226,7 @@ class UsbHandle(object):
         if device.getSerialNumber() == serial:
           return device
 
-    return cls._FromCallback(filter_callback, GetDevice, serial,
+    return cls._FromCallback(filter_callback, GetDevice, usb_info=serial,
                              timeout_ms=timeout_ms)
 
   @classmethod
@@ -258,12 +256,13 @@ class UsbHandle(object):
     return usb
 
   @classmethod
-  def GetDevices(cls, filter_callback, timeout_ms=None):
+  def GetDevices(cls, filter_callback, usb_info=None, timeout_ms=None):
     """A generator of UsbHandle for devices available.
 
     Args:
       filter_callback: Function that takes a device and returns if it matches
           and which setting to use.
+      usb_info: Info string describing device(s).
       timeout_ms: Default timeout of commands in milliseconds.
 
     Yields:
@@ -275,7 +274,7 @@ class UsbHandle(object):
       if setting is None:
         continue
 
-      yield cls(device, setting, timeout_ms=timeout_ms)
+      yield cls(device, setting, usb_info=usb_info, timeout_ms=timeout_ms)
 
   @classmethod
   def _FromCallback(cls, filter_callback, usb_callback, usb_info,

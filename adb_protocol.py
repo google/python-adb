@@ -123,8 +123,7 @@ class _AdbConnection(object):
     return cmd, data
 
   def ReadUntilClose(self):
-    """Read packets until a Close packet is received."""
-    fulldata = ''
+    """Yield packets until a Close packet is received."""
     while True:
       cmd, data = self.ReadUntil('CLSE', 'WRTE')
       if cmd == 'CLSE':
@@ -136,8 +135,7 @@ class _AdbConnection(object):
               'Command failed.', data)
         raise InvalidCommandError('Expected a WRITE or a CLOSE, got %s (%s)',
                                   cmd, data)
-      fulldata += data
-    return fulldata
+      yield data
 
   def Close(self):
     self._Send('CLSE', arg0=self.local_id, arg1=self.remote_id)
@@ -363,7 +361,30 @@ class AdbMessage(object):
     Returns:
       The response from the service.
     """
+    return ''.join(cls.StreamingCommand(usb, service, command, timeout_ms))
+
+  @classmethod
+  def StreamingCommand(cls, usb, service, command='', timeout_ms=None):
+    """One complete set of USB packets for a single command.
+
+    Sends service:command in a new connection, reading the data for the
+    response. All the data is held in memory, large responses will be slow and
+    can fill up memory.
+
+    Args:
+      usb: USB device handle with BulkRead and BulkWrite methods.
+      service: The service on the device to talk to.
+      command: The command to send to the service.
+      timeout_ms: Timeout for USB packets, in milliseconds.
+
+    Raises:
+      InterleavedDataError: Multiple streams running over usb.
+      InvalidCommandError: Got an unexpected response command.
+
+    Yields:
+      The responses from the service.
+    """
     connection = cls.Open(usb, destination='%s:%s' % (service, command),
                           timeout_ms=timeout_ms)
-    data = connection.ReadUntilClose()
-    return data
+    for data in connection.ReadUntilClose():
+      yield data
