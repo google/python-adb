@@ -53,6 +53,7 @@ def KwargHandler(kwargs, argspec):
 def main(argv):
   common_cli.StartCli(
       argv, fastboot.FastbootCommands.ConnectDevice,
+      list_callback=fastboot.FastbootCommands.Devices,
       kwarg_callback=KwargHandler)
 
 

@@ -29,6 +29,15 @@ DEFAULT_MESSAGE_CALLBACK = lambda m: logging.info('Got %s from device', m)
 FastbootMessage = collections.namedtuple(  # pylint: disable=invalid-name
     'FastbootMessage', ['message', 'header'])
 
+# From fastboot.c
+VENDORS = {0x18D1, 0x0451, 0x0502, 0x0FCE, 0x05C6, 0x22B8, 0x0955,
+           0x413C, 0x2314, 0x0BB4, 0x8087}
+CLASS = 0xFF
+SUBCLASS = 0x42
+PROTOCOL = 0x03
+# pylint: disable=invalid-name
+DeviceIsAvailable = common.InterfaceMatcher(CLASS, SUBCLASS, PROTOCOL)
+
 
 # pylint doesn't understand cross-module exception baseclasses.
 # pylint: disable=nonstandard-exception
@@ -190,13 +199,6 @@ class FastbootCommands(object):
   """Encapsulates the fastboot commands."""
   protocol_handler = FastbootProtocol
 
-  # From fastboot.c
-  VENDORS = {0x18D1, 0x0451, 0x0502, 0x0FCE, 0x05C6, 0x22B8, 0x0955,
-             0x413C, 0x2314, 0x0BB4, 0x8087}
-  CLASS = 0xFF
-  SUBCLASS = 0x42
-  PROTOCOL = 0x03
-
   def __init__(self, usb):
     """Constructs a FastbootCommands instance.
 
@@ -206,37 +208,22 @@ class FastbootCommands(object):
     self._usb = usb
     self._protocol = self.protocol_handler(usb)
 
-  @classmethod
-  def ConnectDevice(cls, port_path=None, serial=None, default_timeout_ms=0):
-    """Convenience function to get a fastboot device from usb path or serial."""
-    if port_path:
-      usb = common.UsbHandle.FromPath(
-          port_path, filter_callback=cls.DeviceIsAvailable,
-          timeout_ms=default_timeout_ms)
-    elif serial:
-      usb = common.UsbHandle.FromSerial(
-          serial, filter_callback=cls.DeviceIsAvailable,
-          timeout_ms=default_timeout_ms)
-    else:
-      usb = common.UsbHandle.FromFirst(
-          filter_callback=cls.DeviceIsAvailable,
-          timeout_ms=default_timeout_ms)
-
-    fastboot_dev = cls(usb)
-    return fastboot_dev
-
-  @classmethod
-  def DeviceIsAvailable(cls, device):
-    """Determines if the given device is in fastboot."""
-    for setting in device.iterSettings():
-      if (device.getVendorID() in cls.VENDORS
-          and setting.getClass() == cls.CLASS
-          and setting.getSubClass() == cls.SUBCLASS
-          and setting.getProtocol() == cls.PROTOCOL):
-        return setting
-
   def Close(self):
     self._usb.Close()
+
+  @classmethod
+  def ConnectDevice(
+      cls, port_path=None, serial=None, default_timeout_ms=None):
+    """Convenience function to get an adb device from usb path or serial."""
+    usb = common.UsbHandle.FindAndOpen(
+        DeviceIsAvailable, port_path=port_path, serial=serial,
+        timeout_ms=default_timeout_ms)
+    return cls(usb)
+
+  @classmethod
+  def Devices(cls):
+    """Get a generator of UsbHandle for devices available."""
+    return common.UsbHandle.FindDevices(DeviceIsAvailable)
 
   def _SimpleCommand(self, command, arg=None, **kwargs):
     self._protocol.SendCommand(command, arg)

@@ -31,40 +31,23 @@ gflags.DEFINE_multistring('rsa_key_path', '~/.android/adbkey',
 gflags.DEFINE_integer('auth_timeout_s', 60,
                      'Seconds to wait for the dialog to be accepted when using '
                      'authenticated ADB.')
-gflags.DEFINE_bool('output_port_path', False,
-                   'Affects the devices command only, outputs the port_path '
-                   'alongside the serial if true.')
 FLAGS = gflags.FLAGS
 
 
-def main(argv):
+def GetRSAKwargs():
   if FLAGS.rsa_key_path:
-    kwargs = {
+    return {
         'rsa_keys': [adb.M2CryptoSigner(os.path.expanduser(path))
                      for path in FLAGS.rsa_key_path],
         'auth_timeout_ms': int(FLAGS.auth_timeout_s * 1000.0),
     }
-  else:
-    kwargs = {}
+  return {}
 
-  # To mimic 'adb devices' output like:
-  # ------------------------------
-  # List of devices attached
-  # 015DB7591102001A        device
-  # 015DB75916008005        device
-  # 015DB75910016011        device
-  # ------------------------------
-  if len(argv) == 2 and argv[1] == 'devices':
-    print 'List of devices attached'
-    for device in adb.AdbCommands.Devices():
-      if FLAGS.output_port_path:
-        print '%s\tdevice\t%s' % (
-            device.serial_number,
-            ','.join(str(port) for port in device.port_path))
-      else:
-        print '%s\tdevice' % device.serial_number
-  else:
-    common_cli.StartCli(argv, adb.AdbCommands.ConnectDevice, **kwargs)
+
+def main(argv):
+  common_cli.StartCli(
+      argv, adb.AdbCommands.ConnectDevice,
+      list_callback=adb.AdbCommands.Devices, **GetRSAKwargs())
 
 
 if __name__ == '__main__':

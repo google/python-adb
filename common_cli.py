@@ -33,6 +33,10 @@ gflags.DEFINE_integer('timeout_ms', 200, 'Timeout in milliseconds.')
 gflags.DEFINE_list('port_path', [], 'USB port path integers (eg 1,2 or 2,1,1)')
 gflags.DEFINE_string('serial', None, 'USB serial to look for', short_name='s')
 
+gflags.DEFINE_bool('output_port_path', False,
+                   'Affects the devices command only, outputs the port_path '
+                   'alongside the serial if true.')
+
 FLAGS = gflags.FLAGS
 
 _BLACKLIST = {
@@ -77,14 +81,35 @@ def Usage(adb_dev):
     print '    %s' % method.__doc__
 
 
-def StartCli(argv, connect_callback, kwarg_callback=None, **connect_kwargs):
+def StartCli(argv, device_callback, kwarg_callback=None, list_callback=None,
+             **device_kwargs):
   """Starts a common CLI interface for this usb path and protocol."""
   argv = argv[1:]
 
+  if len(argv) == 1 and argv[0] == 'devices' and list_callback is not None:
+    # To mimic 'adb devices' output like:
+    # ------------------------------
+    # List of devices attached
+    # 015DB7591102001A        device
+    # Or with --output_port_path:
+    # 015DB7591102001A        device        1,2
+    # ------------------------------
+    for device in list_callback():
+      if FLAGS.output_port_path:
+        print '%s\tdevice\t%s' % (
+            device.serial_number,
+            ','.join(str(port) for port in device.port_path))
+      else:
+        print '%s\tdevice' % device.serial_number
+    return
+
+  port_path = [int(part) for part in FLAGS.port_path]
+  serial = FLAGS.serial
+
   try:
-    dev = connect_callback(
-        serial=FLAGS.serial, port_path=[int(part) for part in FLAGS.port_path],
-        default_timeout_ms=FLAGS.timeout_ms, **connect_kwargs)
+    dev = device_callback(
+        port_path=port_path, serial=serial,
+        default_timeout_ms=FLAGS.timeout_ms, **device_kwargs)
   except usb_exceptions.DeviceNotFoundError as e:
     print >> sys.stderr, 'No device found: %s' % e
     return
@@ -123,7 +148,10 @@ def StartCli(argv, connect_callback, kwarg_callback=None, **connect_kwargs):
         sys.stdout.write(result.getvalue())
       elif isinstance(result, (list, types.GeneratorType)):
         for r in result:
+          r = str(r)
           sys.stdout.write(r)
+          if not r.endswith('\n'):
+            sys.stdout.write('\n')
       else:
         sys.stdout.write(result)
     sys.stdout.write('\n')

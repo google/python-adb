@@ -40,10 +40,6 @@ class DeviceAuthError(FormatMessageWithArgumentsException):
   """Device authentication failed."""
 
 
-class InvalidConfigurationError(FormatMessageWithArgumentsException):
-  """Device on port didn't have the expected configuration."""
-
-
 class LibusbWrappingError(CommonUsbError):
   """Wraps libusb1 errors while keeping its original usefulness.
 

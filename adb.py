@@ -32,6 +32,13 @@ import adb_protocol
 import common
 import filesync_protocol
 
+# From adb.h
+CLASS = 0xFF
+SUBCLASS = 0x42
+PROTOCOL = 0x01
+# pylint: disable=invalid-name
+DeviceIsAvailable = common.InterfaceMatcher(CLASS, SUBCLASS, PROTOCOL)
+
 
 class M2CryptoSigner(adb_protocol.AuthSigner):
   """AuthSigner using M2Crypto."""
@@ -57,39 +64,14 @@ class AdbCommands(object):
   protocol_handler = adb_protocol.AdbMessage
   filesync_handler = filesync_protocol.FilesyncProtocol
 
-  # From adb.h
-  CLASS = 0xFF
-  SUBCLASS = 0x42
-  PROTOCOL = 0x01
-
   @classmethod
   def ConnectDevice(
       cls, port_path=None, serial=None, default_timeout_ms=None, **kwargs):
     """Convenience function to get an adb device from usb path or serial."""
-    if port_path:
-      usb = common.UsbHandle.FromPath(
-          port_path, filter_callback=cls.DeviceIsAvailable,
-          timeout_ms=default_timeout_ms)
-    elif serial:
-      usb = common.UsbHandle.FromSerial(
-          serial, filter_callback=cls.DeviceIsAvailable,
-          timeout_ms=default_timeout_ms)
-    else:
-      usb = common.UsbHandle.FromFirst(
-          filter_callback=cls.DeviceIsAvailable,
-          timeout_ms=default_timeout_ms)
-
-    adb_dev = cls.Connect(usb, **kwargs)
-    return adb_dev
-
-  @classmethod
-  def DeviceIsAvailable(cls, device):
-    """Determines if the given device is in ADB."""
-    for setting in device.iterSettings():
-      if (setting.getClass() == cls.CLASS
-          and setting.getSubClass() == cls.SUBCLASS
-          and setting.getProtocol() == cls.PROTOCOL):
-        return setting
+    usb = common.UsbHandle.FindAndOpen(
+        DeviceIsAvailable, port_path=port_path, serial=serial,
+        timeout_ms=default_timeout_ms)
+    return cls.Connect(usb, **kwargs)
 
   def __init__(self, usb, device_state):
     self._usb = usb
@@ -124,7 +106,7 @@ class AdbCommands(object):
   @classmethod
   def Devices(cls):
     """Get a generator of UsbHandle for devices available."""
-    return common.UsbHandle.GetDevices(filter_callback=cls.DeviceIsAvailable)
+    return common.UsbHandle.FindDevices(DeviceIsAvailable)
 
   def GetState(self):
     return self._device_state
