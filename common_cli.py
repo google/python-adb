@@ -29,7 +29,7 @@ import gflags
 
 import usb_exceptions
 
-gflags.DEFINE_integer('timeout_ms', 200, 'Timeout in milliseconds.')
+gflags.DEFINE_integer('timeout_ms', 10000, 'Timeout in milliseconds.')
 gflags.DEFINE_list('port_path', [], 'USB port path integers (eg 1,2 or 2,1,1)')
 gflags.DEFINE_string('serial', None, 'USB serial to look for', short_name='s')
 
