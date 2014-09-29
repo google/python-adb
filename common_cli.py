@@ -106,10 +106,10 @@ def StartCli(argv, device_callback, kwarg_callback=None, list_callback=None,
   port_path = [int(part) for part in FLAGS.port_path]
   serial = FLAGS.serial
 
+  device_kwargs.setdefault('default_timeout_ms', FLAGS.timeout_ms)
   try:
     dev = device_callback(
-        port_path=port_path, serial=serial,
-        default_timeout_ms=FLAGS.timeout_ms, **device_kwargs)
+        port_path=port_path, serial=serial, **device_kwargs)
   except usb_exceptions.DeviceNotFoundError as e:
     print >> sys.stderr, 'No device found: %s' % e
     return
