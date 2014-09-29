@@ -20,8 +20,16 @@ import logging
 import os
 import struct
 
+import gflags
+
 import common
 import usb_exceptions
+
+FLAGS = gflags.FLAGS
+gflags.DEFINE_integer('fastboot_write_chunk_size_kb', 4,
+                      'The size of packets to write to usb, this is set to 4 '
+                      "for legacy reasons.  We've had success with 1MB "
+                      'DRASTICALLY increasing flashing times.')
 
 _LOG = logging.getLogger('fastboot')
 
@@ -187,7 +195,7 @@ class FastbootProtocol(object):
       progress = self._HandleProgress(length, progress_callback)
       progress.next()
     while length:
-      tmp = data.read(4096)
+      tmp = data.read(FLAGS.fastboot_write_chunk_size_kb * 1024)
       length -= len(tmp)
       self.usb.BulkWrite(tmp)
 

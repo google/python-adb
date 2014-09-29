@@ -18,9 +18,12 @@ import os
 import tempfile
 import unittest
 
+import gflags
+
 import common_stub
 import fastboot
 
+FLAGS = gflags.FLAGS
 
 class FastbootTest(unittest.TestCase):
 
@@ -112,9 +115,10 @@ class FastbootTest(unittest.TestCase):
     progresses = []
 
     pieces = []
+    chunk_size = FLAGS.fastboot_write_chunk_size_kb * 1024
     while raw:
-      pieces.append(raw[:4096])
-      raw = raw[4096:]
+      pieces.append(raw[:chunk_size])
+      raw = raw[chunk_size:]
     self.ExpectDownload(pieces)
     self.ExpectFlash(partition)
 
