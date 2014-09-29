@@ -208,6 +208,10 @@ class FastbootCommands(object):
     self._usb = usb
     self._protocol = self.protocol_handler(usb)
 
+  @property
+  def usb_handle(self):
+    return self._usb
+
   def Close(self):
     self._usb.Close()
 
