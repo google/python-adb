@@ -154,11 +154,11 @@ class FilesyncAdbTest(BaseAdbTest):
     while write_commands or read_commands:
       if write_commands:
         command = write_commands.pop(0)
-        cls._ExpectWrite(usb, 'WRTE', 0, REMOTE_ID, command)
+        cls._ExpectWrite(usb, 'WRTE', LOCAL_ID, REMOTE_ID, command)
 
       if read_commands:
         command = read_commands.pop(0)
-        cls._ExpectRead(usb, 'WRTE', REMOTE_ID, 0, command)
+        cls._ExpectRead(usb, 'WRTE', REMOTE_ID, LOCAL_ID, command)
 
     cls._ExpectClose(usb)
     return usb
