@@ -92,7 +92,7 @@ class _AdbConnection(object):
 
   def Write(self, data):
     """Write a packet and expect an Ack."""
-    self._Send('WRTE', arg0=0, arg1=self.remote_id, data=data)
+    self._Send('WRTE', arg0=self.local_id, arg1=self.remote_id, data=data)
     # Expect an ack in response.
     cmd, okay_data = self.ReadUntil('OKAY')
     if cmd != 'OKAY':
