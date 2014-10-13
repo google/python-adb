@@ -16,6 +16,7 @@
 Common usb browsing, and usb communication.
 """
 import logging
+import socket
 import threading
 import weakref
 
@@ -269,3 +270,35 @@ class UsbHandle(object):
       handle = cls(device, setting, usb_info=usb_info, timeout_ms=timeout_ms)
       if device_matcher is None or device_matcher(handle):
         yield handle
+
+class TcpHandle(object):
+  """TCP connection object.
+
+     Provides same interface as UsbHandle but ignores timeout."""
+
+  def __init__(self, serial):
+    """Initialize the TCP Handle.
+    Arguments:
+      serial: Android device serial of the form host or host:port.
+
+    Host may be an IP address or a host name.
+    """
+    if ':' in serial:
+      (host, port) = serial.split(':')
+    else:
+      host = serial
+      port = 5555
+
+    self._connection = socket.create_connection((host, port))
+
+  def BulkWrite(self, data, timeout=None):
+      return self._connection.sendall(data)
+
+  def BulkRead(self, numbytes, timeout=None):
+      return self._connection.recv(numbytes)
+
+  def Timeout(self, timeout_ms):
+      return timeout_ms
+
+  def Close(self):
+      return self._connection.close()

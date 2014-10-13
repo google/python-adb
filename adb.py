@@ -67,29 +67,41 @@ class AdbCommands(object):
   @classmethod
   def ConnectDevice(
       cls, port_path=None, serial=None, default_timeout_ms=None, **kwargs):
-    """Convenience function to get an adb device from usb path or serial."""
-    usb = common.UsbHandle.FindAndOpen(
-        DeviceIsAvailable, port_path=port_path, serial=serial,
-        timeout_ms=default_timeout_ms)
-    return cls.Connect(usb, **kwargs)
+    """Convenience function to get an adb device from usb path or serial.
+    
+    Args:
+      port_path: The filename of usb port to use.
+      serial: The serial number of the device to use.
+      default_timeout_ms: The default timeout in milliseconds to use.
 
-  def __init__(self, usb, device_state):
-    self._usb = usb
+    If serial specifies a TCP address:port, then a TCP connection is
+    used instead of a USB connection.
+    """
+    if serial and ':' in serial:
+        handle = common.TcpHandle(serial)
+    else:
+        handle = common.UsbHandle.FindAndOpen(
+            DeviceIsAvailable, port_path=port_path, serial=serial,
+            timeout_ms=default_timeout_ms)
+    return cls.Connect(handle, **kwargs)
+
+  def __init__(self, handle, device_state):
+    self._handle = handle
     self._device_state = device_state
 
   @property
   def usb_handle(self):
-    return self._usb
+    return self._handle
 
   def Close(self):
-    self._usb.Close()
+    self._handle.Close()
 
   @classmethod
   def Connect(cls, usb, banner=None, **kwargs):
     """Connect to the device.
 
     Args:
-      usb: UsbHandle instance to use.
+      usb: UsbHandle or TcpHandle instance to use.
       banner: See protocol_handler.Connect.
       **kwargs: See protocol_handler.Connect for kwargs. Includes rsa_keys,
           and auth_timeout_ms.
@@ -144,7 +156,7 @@ class AdbCommands(object):
       timeout_ms: Expected timeout for any part of the push.
     """
     connection = self.protocol_handler.Open(
-        self._usb, destination='sync:',
+        self._handle, destination='sync:',
         timeout_ms=timeout_ms)
     if isinstance(source_file, basestring):
       source_file = open(source_file)
@@ -168,7 +180,7 @@ class AdbCommands(object):
     elif not dest_file:
       dest_file = cStringIO.StringIO()
     connection = self.protocol_handler.Open(
-        self._usb, destination='sync:',
+        self._handle, destination='sync:',
         timeout_ms=timeout_ms)
     self.filesync_handler.Pull(connection, device_filename, dest_file)
     connection.Close()
@@ -179,7 +191,7 @@ class AdbCommands(object):
 
   def Stat(self, device_filename):
     """Get a file's stat() information."""
-    connection = self.protocol_handler.Open(self._usb, destination='sync:')
+    connection = self.protocol_handler.Open(self._handle, destination='sync:')
     mode, size, mtime = self.filesync_handler.Stat(
         connection, device_filename)
     connection.Close()
@@ -187,14 +199,14 @@ class AdbCommands(object):
 
   def List(self, device_path):
     """Return a directory listing of the given path."""
-    connection = self.protocol_handler.Open(self._usb, destination='sync:')
+    connection = self.protocol_handler.Open(self._handle, destination='sync:')
     listing = self.filesync_handler.List(connection, device_path)
     connection.Close()
     return listing
 
   def Reboot(self, destination=''):
     """Reboot device, specify 'bootloader' for fastboot."""
-    self.protocol_handler.Open(self._usb, 'reboot:%s' % destination)
+    self.protocol_handler.Open(self._handle, 'reboot:%s' % destination)
 
   def RebootBootloader(self):
     """Reboot device into fastboot."""
@@ -202,20 +214,20 @@ class AdbCommands(object):
 
   def Remount(self):
     """Remount / as read-write."""
-    return self.protocol_handler.Command(self._usb, service='remount')
+    return self.protocol_handler.Command(self._handle, service='remount')
 
   def Root(self):
     """Restart adbd as root on device."""
-    return self.protocol_handler.Command(self._usb, service='root')
+    return self.protocol_handler.Command(self._handle, service='root')
 
   def Shell(self, command, timeout_ms=None):
     """Run command on the device, returning the output."""
     return self.protocol_handler.Command(
-        self._usb, service='shell', command=command,
+        self._handle, service='shell', command=command,
         timeout_ms=timeout_ms)
 
   def Logcat(self, options, timeout_ms=None):
     """Run 'shell logcat' and stream the output to stdout."""
     return self.protocol_handler.StreamingCommand(
-        self._usb, service='shell', command='logcat %s' % options,
+        self._handle, service='shell', command='logcat %s' % options,
         timeout_ms=timeout_ms)
