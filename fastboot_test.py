@@ -21,7 +21,7 @@ import unittest
 import gflags
 
 import common_stub
-import fastboot
+from adb import fastboot
 
 FLAGS = gflags.FLAGS
 

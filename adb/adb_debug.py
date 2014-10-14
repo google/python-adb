@@ -21,7 +21,7 @@ import sys
 
 import gflags
 
-import adb
+import adb_commands
 import common_cli
 
 gflags.ADOPT_module_key_flags(common_cli)

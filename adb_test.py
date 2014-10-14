@@ -17,8 +17,8 @@ import cStringIO
 import struct
 import unittest
 
-import adb
-import adb_protocol
+from adb import adb_commands
+from adb import adb_protocol
 import common_stub
 
 
@@ -72,7 +72,7 @@ class BaseAdbTest(unittest.TestCase):
 
   @classmethod
   def _Connect(cls, usb):
-    return adb.AdbCommands.Connect(usb, BANNER)
+    return adb_commands.AdbCommands.Connect(usb, BANNER)
 
 
 class AdbTest(BaseAdbTest):
@@ -92,7 +92,7 @@ class AdbTest(BaseAdbTest):
     usb = common_stub.StubUsb()
     self._ExpectConnection(usb)
 
-    adb.AdbCommands.Connect(usb, BANNER)
+    adb_commands.AdbCommands.Connect(usb, BANNER)
 
   def testSmallResponseShell(self):
     command = 'keepin it real'
