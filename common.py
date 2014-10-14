@@ -288,8 +288,13 @@ class TcpHandle(object):
     else:
       host = serial
       port = 5555
+    self._serial_number = '%s:%s' % (host, port)
 
     self._connection = socket.create_connection((host, port))
+
+  @property
+  def serial_number(self):
+    return self._serial_number
 
   def BulkWrite(self, data, timeout=None):
       return self._connection.sendall(data)
