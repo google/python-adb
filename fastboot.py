@@ -29,7 +29,7 @@ FLAGS = gflags.FLAGS
 gflags.DEFINE_integer('fastboot_write_chunk_size_kb', 4,
                       'The size of packets to write to usb, this is set to 4 '
                       "for legacy reasons.  We've had success with 1MB "
-                      'DRASTICALLY increasing flashing times.')
+                      'DRASTICALLY decreasing flashing times.')
 
 _LOG = logging.getLogger('fastboot')
 
