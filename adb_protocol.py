@@ -211,7 +211,7 @@ class AdbMessage(object):
     total_timeout_ms = usb.Timeout(total_timeout_ms)
     start = time.time()
     while True:
-      msg = usb.BulkRead(64, timeout_ms)
+      msg = usb.BulkRead(24, timeout_ms)
       cmd, arg0, arg1, data_length, data_checksum = cls.Unpack(msg)
       command = cls.constants.get(cmd)
       if not command:
