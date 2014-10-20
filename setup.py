@@ -17,9 +17,11 @@ from distutils.core import setup
 setup(
     name = 'adb',
     packages = ['adb'],
-    version = 'TBD',
+    version = '1.1.0',
     author = 'Fahrzin Hemmati',
     author_email = 'fahhem@gmail.com',
+    maintainer = 'alusco@google.com',
+    maintainer_email = 'Alex Lusco',
     url = 'https://github.com/google/python-adb',
     description = 'A pure python implementation of the Android ADB and Fastboot protocols',
     long_description = '''
@@ -47,9 +49,8 @@ Android project's ADB.
     classifiers = [
         'Development Status :: 4 - Beta',
         'License :: OSI Approved :: Apache Software License',
-        'Operating System :: Android',
         'Programming Language :: Python',
         #'Programming Language :: Python :: 3', ## import cStringIO fails with python3
-        'Topic :: Software Development :: Testing',
+        'Topic :: Software Development :: Testing'
         ]
 )
