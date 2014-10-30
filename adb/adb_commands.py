@@ -68,7 +68,7 @@ class AdbCommands(object):
   def ConnectDevice(
       cls, port_path=None, serial=None, default_timeout_ms=None, **kwargs):
     """Convenience function to get an adb device from usb path or serial.
-    
+
     Args:
       port_path: The filename of usb port to use.
       serial: The serial number of the device to use.
