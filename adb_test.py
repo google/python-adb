@@ -113,6 +113,21 @@ class AdbTest(BaseAdbTest):
     adb_commands = self._Connect(usb)
     self.assertEqual(''.join(responses), adb_commands.Shell(command))
 
+  def testStreamingResponseShell(self):
+    command = 'keepin it real big'
+    # expect multiple lines
+
+    responses = ['other stuff, ', 'and some words.']
+
+    usb = self._ExpectCommand('shell', command, *responses)
+
+    adb_commands = self._Connect(usb)
+    response_count = 0
+    for (expected,actual) in zip(responses, adb_commands.StreamingShell(command)):
+      self.assertEqual(expected, actual)
+      response_count = response_count + 1
+    self.assertEqual(len(responses), response_count)
+
   def testReboot(self):
     usb = self._ExpectCommand('reboot', '', '')
     adb_commands = self._Connect(usb)
