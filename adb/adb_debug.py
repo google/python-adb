@@ -37,7 +37,7 @@ FLAGS = gflags.FLAGS
 def GetRSAKwargs():
   if FLAGS.rsa_key_path:
     return {
-        'rsa_keys': [adb.M2CryptoSigner(os.path.expanduser(path))
+        'rsa_keys': [adb_commands.M2CryptoSigner(os.path.expanduser(path))
                      for path in FLAGS.rsa_key_path],
         'auth_timeout_ms': int(FLAGS.auth_timeout_s * 1000.0),
     }
@@ -46,8 +46,8 @@ def GetRSAKwargs():
 
 def main(argv):
   common_cli.StartCli(
-      argv, adb.AdbCommands.ConnectDevice,
-      list_callback=adb.AdbCommands.Devices, **GetRSAKwargs())
+      argv, adb_commands.AdbCommands.ConnectDevice,
+      list_callback=adb_commands.AdbCommands.Devices, **GetRSAKwargs())
 
 
 if __name__ == '__main__':
