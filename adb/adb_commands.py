@@ -153,8 +153,10 @@ class AdbCommands(object):
     """
 
     if os.path.isdir(source_file):
-      for dir in os.listdir(source_file):
-        return self.Push(os.path.join(source_file, dir), device_filename + "/" + dir)
+       self.Shell("mkdir " + device_filename)
+       for dir_file in os.listdir(source_file):
+         self.Push(os.path.join(source_file, dir_file), device_filename + "/" + dir_file)
+       return
 
     connection = self.protocol_handler.Open(
         self.handle, destination='sync:',
