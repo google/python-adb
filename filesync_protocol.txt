@@ -8,8 +8,8 @@ Message Format:
     directory or symlink.
   The command here is referred to as 'id' in the code and the 4-letter codes
     are prefixed by ID_, eg ID_STAT.
-  The command IDs are found by reversing the 4 letter command codes and
-    converting them to hexadecimal.
+  The command IDs are the little endian hexadecimal representations of the 
+    4-letter command codes.
 
 
   STAT:
