@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # Copyright 2014 Google Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,6 +24,7 @@ import gflags
 
 import adb_commands
 import common_cli
+import sign_m2crypto
 
 gflags.ADOPT_module_key_flags(common_cli)
 
@@ -37,7 +39,7 @@ FLAGS = gflags.FLAGS
 def GetRSAKwargs():
   if FLAGS.rsa_key_path:
     return {
-        'rsa_keys': [adb_commands.M2CryptoSigner(os.path.expanduser(path))
+        'rsa_keys': [sign_m2crypto.M2CryptoSigner(os.path.expanduser(path))
                      for path in FLAGS.rsa_key_path],
         'auth_timeout_ms': int(FLAGS.auth_timeout_s * 1000.0),
     }
