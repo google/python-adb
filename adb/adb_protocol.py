@@ -226,7 +226,12 @@ class AdbMessage(object):
             cmd, (timeout_ms, total_timeout_ms))
 
     if data_length > 0:
-      data = usb.BulkRead(data_length, timeout_ms)
+      data = ''
+      while data_length > 0:
+          temp = usb.BulkRead(data_length, timeout_ms)
+          data += temp
+          data_length -= len(temp)
+
       actual_checksum = cls.CalculateChecksum(data)
       if actual_checksum != data_checksum:
         raise InvalidChecksumError(
