@@ -128,7 +128,6 @@ def StartCli(argv, device_callback, kwarg_callback=None, list_callback=None,
   method = getattr(dev, method_name)
   argspec = inspect.getargspec(method)
   num_args = len(argspec.args) - 1  # self is the first one.
-  num_args -= len(argspec.defaults or [])
   # Handle putting the remaining command line args into the last normal arg.
   argv.pop(0)
 
