@@ -20,8 +20,8 @@ setup(
     version = '1.1.0',
     author = 'Fahrzin Hemmati',
     author_email = 'fahhem@gmail.com',
-    maintainer = 'alusco@google.com',
-    maintainer_email = 'Alex Lusco',
+    maintainer = 'Alex Lusco',
+    maintainer_email = 'alusco@google.com',
     url = 'https://github.com/google/python-adb',
     description = 'A pure python implementation of the Android ADB and Fastboot protocols',
     long_description = '''
@@ -43,7 +43,7 @@ Android project's ADB.
 
     keywords = ['android', 'adb', 'fastboot'],
 
-    requires = ['gflags', 'libusb1', 'M2Crypto'],
+    requires = ['python-gflags', 'libusb1', 'M2Crypto'],
 
 ## classifier list https://pypi.python.org/pypi?:action=list_classifiers
     classifiers = [
