@@ -151,6 +151,13 @@ class AdbCommands(object):
       mtime: Optional, modification time to set on the file.
       timeout_ms: Expected timeout for any part of the push.
     """
+
+    if os.path.isdir(source_file):
+       self.Shell("mkdir " + device_filename)
+       for dir_file in os.listdir(source_file):
+         self.Push(os.path.join(source_file, dir_file), device_filename + "/" + dir_file)
+       return
+
     connection = self.protocol_handler.Open(
         self.handle, destination='sync:',
         timeout_ms=timeout_ms)
