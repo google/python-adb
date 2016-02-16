@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from distutils.core import setup
+from setuptools import setup
 
 setup(
     name = 'adb',
@@ -43,7 +43,7 @@ Android project's ADB.
 
     keywords = ['android', 'adb', 'fastboot'],
 
-    requires = ['python-gflags>=2.0', 'libusb1>=1.0.16', 'M2Crypto>=0.21.1'],
+    install_requires = ['python-gflags>=2.0', 'libusb1>=1.0.16', 'M2Crypto>=0.21.1'],
 
     extra_requires = {
         'fastboot': 'progressbar>=2.3'
