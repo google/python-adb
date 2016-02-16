@@ -52,7 +52,7 @@ def GetRSAKwargs():
       sys.exit(1)
     signer = (
         sign_m2crypto.M2CryptoSigner if sign_m2crypto
-        else sign_pythonrsa.PythonRSASigner)
+        else sign_pythonrsa.PythonRSASigner.FromRSAKeyPath)
     return {
         'rsa_keys': [signer(os.path.expanduser(path))
                      for path in FLAGS.rsa_key_path],
