@@ -53,12 +53,15 @@ def _load_rsa_private_key(pem):
 
 class PythonRSASigner(object):
   """Implements adb_protocol.AuthSigner using http://stuvel.eu/rsa."""
-  def __init__(self, rsa_key_path=None, pub=None, priv=None):
-    if rsa_key_path:
-      with open(rsa_key_path + '.pub') as f:
-        pub = f.read()
-      with open(rsa_key_path) as f:
-        priv = f.read()
+  @classmethod
+  def FromRSAKeyPath(cls, rsa_key_path):
+    with open(rsa_key_path + '.pub') as f:
+      pub = f.read()
+    with open(rsa_key_path) as f:
+      priv = f.read()
+    return cls(pub, priv)
+
+  def __init__(self, pub=None, priv=None):
     self.priv_key = _load_rsa_private_key(priv)
     self.pub_key = pub
 
