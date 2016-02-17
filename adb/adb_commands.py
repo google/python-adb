@@ -110,7 +110,7 @@ class AdbCommands(object):
     return self._device_state
 
   def Install(self, apk_path, destination_dir=None, timeout_ms=None):
-    """Install apk to device.
+    """Install an apk to the device.
 
     Doesn't support verifier file, instead allows destination directory to be
     overridden.
@@ -133,10 +133,11 @@ class AdbCommands(object):
                       timeout_ms=timeout_ms)
 
   def Push(self, source_file, device_filename, mtime='0', timeout_ms=None):
-    """Push source_file to file on device.
+    """Push a file or directory to the device.
 
     Arguments:
-      source_file: Either a filename or file-like object to push to the device.
+      source_file: Either a filename, a directory or file-like object to push to
+                   the device.
       device_filename: The filename on the device to write to.
       mtime: Optional, modification time to set on the file.
       timeout_ms: Expected timeout for any part of the push.
@@ -158,7 +159,7 @@ class AdbCommands(object):
     connection.Close()
 
   def Pull(self, device_filename, dest_file=None, timeout_ms=None):
-    """Pull file from device.
+    """Pull a file from the device.
 
     Arguments:
       device_filename: The filename on the device to pull.
@@ -198,7 +199,10 @@ class AdbCommands(object):
     return listing
 
   def Reboot(self, destination=''):
-    """Reboot device, specify 'bootloader' for fastboot."""
+    """Reboot the device.
+
+    Specify 'bootloader' for fastboot.
+    """
     self.protocol_handler.Open(self.handle, 'reboot:%s' % destination)
 
   def RebootBootloader(self):
@@ -210,7 +214,7 @@ class AdbCommands(object):
     return self.protocol_handler.Command(self.handle, service='remount')
 
   def Root(self):
-    """Restart adbd as root on device."""
+    """Restart adbd as root on the device."""
     return self.protocol_handler.Command(self.handle, service='root')
 
   def Shell(self, command, timeout_ms=None):

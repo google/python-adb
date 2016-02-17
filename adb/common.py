@@ -186,6 +186,7 @@ class UsbHandle(object):
           'Could not receive data from %s (timeout %sms)' % (
               self.usb_info, self.Timeout(timeout_ms)), e)
 
+  @classmethod
   def PortPathMatcher(cls, port_path):
     """Returns a device matcher for the given port path."""
     if isinstance(port_path, basestring):
