@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # Copyright 2014 Google Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -115,7 +116,7 @@ class FastbootTest(unittest.TestCase):
     progresses = []
 
     pieces = []
-    chunk_size = FLAGS.fastboot_write_chunk_size_kb * 1024
+    chunk_size = fastboot.FastbootProtocol(None).chunk_kb * 1024
     while raw:
       pieces.append(raw[:chunk_size])
       raw = raw[chunk_size:]

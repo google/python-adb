@@ -109,13 +109,13 @@ class AdbCommands(object):
   def GetState(self):
     return self._device_state
 
-  def Install(self, apk_path, destination_dir=None, timeout_ms=None):
+  def Install(self, apk_path, destination_dir='', timeout_ms=None):
     """Install an apk to the device.
 
     Doesn't support verifier file, instead allows destination directory to be
     overridden.
 
-    Arguments:
+    Args:
       apk_path: Local path to apk to install.
       destination_dir: Optional destination directory. Use /system/app/ for
         persistent applications.
@@ -135,44 +135,42 @@ class AdbCommands(object):
   def Push(self, source_file, device_filename, mtime='0', timeout_ms=None):
     """Push a file or directory to the device.
 
-    Arguments:
+    Args:
       source_file: Either a filename, a directory or file-like object to push to
                    the device.
-      device_filename: The filename on the device to write to.
+      device_filename: Destination on the device to write to.
       mtime: Optional, modification time to set on the file.
       timeout_ms: Expected timeout for any part of the push.
     """
-
-    if os.path.isdir(source_file):
-       self.Shell("mkdir " + device_filename)
-       for dir_file in os.listdir(source_file):
-         self.Push(os.path.join(source_file, dir_file), device_filename + "/" + dir_file)
-       return
+    if isinstance(source_file, basestring):
+      if os.path.isdir(source_file):
+        self.Shell("mkdir " + device_filename)
+        for f in os.listdir(source_file):
+          self.Push(os.path.join(source_file, f), device_filename + '/' + f)
+        return
+      source_file = open(source_file)
 
     connection = self.protocol_handler.Open(
-        self.handle, destination='sync:',
-        timeout_ms=timeout_ms)
-    if isinstance(source_file, basestring):
-      source_file = open(source_file)
+        self.handle, destination='sync:', timeout_ms=timeout_ms)
     self.filesync_handler.Push(connection, source_file, device_filename,
                                mtime=int(mtime))
     connection.Close()
 
-  def Pull(self, device_filename, dest_file=None, timeout_ms=None):
+  def Pull(self, device_filename, dest_file='', timeout_ms=None):
     """Pull a file from the device.
 
-    Arguments:
-      device_filename: The filename on the device to pull.
+    Args:
+      device_filename: Filename on the device to pull.
       dest_file: If set, a filename or writable file-like object.
       timeout_ms: Expected timeout for any part of the pull.
 
     Returns:
       The file data if dest_file is not set.
     """
-    if isinstance(dest_file, basestring):
-      dest_file = open(dest_file, 'w')
-    elif not dest_file:
+    if not dest_file:
       dest_file = cStringIO.StringIO()
+    elif isinstance(dest_file, basestring):
+      dest_file = open(dest_file, 'w')
     connection = self.protocol_handler.Open(
         self.handle, destination='sync:',
         timeout_ms=timeout_ms)
@@ -192,7 +190,11 @@ class AdbCommands(object):
     return mode, size, mtime
 
   def List(self, device_path):
-    """Return a directory listing of the given path."""
+    """Return a directory listing of the given path.
+
+    Args:
+      device_path: Directory to list.
+    """
     connection = self.protocol_handler.Open(self.handle, destination='sync:')
     listing = self.filesync_handler.List(connection, device_path)
     connection.Close()
@@ -201,7 +203,8 @@ class AdbCommands(object):
   def Reboot(self, destination=''):
     """Reboot the device.
 
-    Specify 'bootloader' for fastboot.
+    Args:
+      destination: Specify 'bootloader' for fastboot.
     """
     self.protocol_handler.Open(self.handle, 'reboot:%s' % destination)
 
@@ -227,7 +230,7 @@ class AdbCommands(object):
     """Run command on the device, yielding each line of output.
 
     Args:
-      command: the command to run on the target.
+      command: Command to run on the target.
       timeout_ms: Maximum time to allow the command to run.
 
     Yields:
@@ -238,7 +241,9 @@ class AdbCommands(object):
         timeout_ms=timeout_ms)
 
   def Logcat(self, options, timeout_ms=None):
-    """Run 'shell logcat' and stream the output to stdout."""
-    return self.protocol_handler.StreamingCommand(
-        self.handle, service='shell', command='logcat %s' % options,
-        timeout_ms=timeout_ms)
+    """Run 'shell logcat' and stream the output to stdout.
+
+    Args:
+      options: Arguments to pass to 'logcat'.
+    """
+    return self.StreamingCommand('logcat %s' % options, timeout_ms)

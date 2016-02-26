@@ -27,8 +27,8 @@ Cons:
 
 Dependencies:
   * libusb1 (1.0.16+)
-  * python-gflags (2.0+)
   * python-libusb1 (1.2.0+)
   * python-progressbar (for fastboot_debug, 2.3+)
-  * python-m2crypto (0.21.1+)
-
+  * One of:
+    * python-m2crypto (0.21.1+)
+    * python-rsa (3.2+)

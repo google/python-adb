@@ -19,144 +19,145 @@ StartCli handles connecting to a device, calling the expected method, and
 outputting the results.
 """
 
+import argparse
 import cStringIO
 import inspect
+import logging
 import re
 import sys
+import textwrap
 import types
-
-import gflags
 
 import usb_exceptions
 
-gflags.DEFINE_integer('timeout_ms', 10000, 'Timeout in milliseconds.')
-gflags.DEFINE_list('port_path', [], 'USB port path integers (eg 1,2 or 2,1,1)')
-gflags.DEFINE_string('serial', None, 'Device serial to look for (host:port or USB serial)', short_name='s')
 
-gflags.DEFINE_bool('output_port_path', False,
-                   'Affects the devices command only, outputs the port_path '
-                   'alongside the serial if true.')
-
-FLAGS = gflags.FLAGS
-
-_BLACKLIST = {
-    'Connect',
-    'Close',
-    'ConnectDevice',
-    'DeviceIsAvailable',
-}
+class _PortPathAction(argparse.Action):
+  def __call__(self, parser, namespace, values, option_string=None):
+    setattr(
+        namespace, self.dest,
+        [int(i) for i in values.replace('/', ',').split(',')])
 
 
-def Uncamelcase(name):
-  parts = re.split(r'([A-Z][a-z]+)', name)[1:-1:2]
-  return ('-'.join(parts)).lower()
+class PositionalArg(argparse.Action):
+  def __call__(self, parser, namespace, values, option_string=None):
+    namespace.positional.append(values)
 
 
-def Camelcase(name):
-  return name.replace('-', ' ').title().replace(' ', '')
+def GetDeviceArguments():
+  group = argparse.ArgumentParser('Device', add_help=False)
+  group.add_argument(
+      '--timeout_ms', default=10000, type=int, metavar='10000',
+      help='Timeout in milliseconds.')
+  group.add_argument(
+      '--port_path', action=_PortPathAction,
+      help='USB port path integers (eg 1,2 or 2,1,1)')
+  group.add_argument(
+      '-s', '--serial',
+      help='Device serial to look for (host:port or USB serial)')
+  return group
 
 
-def Usage(adb_dev):
-  methods = inspect.getmembers(adb_dev, inspect.ismethod)
-  print 'Methods:'
-  for name, method in methods:
-    if name.startswith('_'):
-      continue
-    if not method.__doc__:
-      continue
-    if name in _BLACKLIST:
-      continue
-
-    argspec = inspect.getargspec(method)
-    args = argspec.args[1:] or ''
-    # Surround default'd arguments with []
-    defaults = argspec.defaults or []
-    if args:
-      args = (args[:-len(defaults)] +
-              ['[%s]' % arg for arg in args[-len(defaults):]])
-
-      args = ' ' + ' '.join(args)
-
-    print '  %s%s:' % (Uncamelcase(name), args)
-    print '    %s' % method.__doc__
+def GetCommonArguments():
+  group = argparse.ArgumentParser('Common', add_help=False)
+  group.add_argument('--verbose', action='store_true', help='Enable logging')
+  return group
 
 
-def StartCli(argv, device_callback, kwarg_callback=None, list_callback=None,
-             **device_kwargs):
-  """Starts a common CLI interface for this usb path and protocol."""
-  argv = argv[1:]
-
-  if len(argv) == 1 and argv[0] == 'devices' and list_callback is not None:
-    # To mimic 'adb devices' output like:
-    # ------------------------------
-    # List of devices attached
-    # 015DB7591102001A        device
-    # Or with --output_port_path:
-    # 015DB7591102001A        device        1,2
-    # ------------------------------
-    for device in list_callback():
-      if FLAGS.output_port_path:
-        print '%s\tdevice\t%s' % (
-            device.serial_number,
-            ','.join(str(port) for port in device.port_path))
+def _DocToArgs(doc):
+  """Converts a docstring documenting arguments into a dict."""
+  offset = None
+  in_arg = False
+  out = {}
+  for l in doc.splitlines():
+    if l.strip() == 'Args:':
+      in_arg = True
+    elif in_arg:
+      if not l.strip():
+        break
+      if offset is None:
+        offset = len(l) - len(l.lstrip())
+      l = l[offset:]
+      if l[0] == ' ':
+        out[m.group(1)] += ' ' + l.lstrip()
       else:
-        print '%s\tdevice' % device.serial_number
-    return
+        m = re.match(r'^([a-z_]+): (.+)$', l.strip())
+        out[m.group(1)] = m.group(2)
+  return out
 
-  port_path = [int(part) for part in FLAGS.port_path]
-  serial = FLAGS.serial
 
-  device_kwargs.setdefault('default_timeout_ms', FLAGS.timeout_ms)
+def MakeSubparser(subparsers, parents, method, arguments=None):
+  """Returns an argparse subparser to create a 'subcommand' to adb."""
+  name = ('-'.join(re.split(r'([A-Z][a-z]+)', method.__name__)[1:-1:2])).lower()
+  help = method.__doc__.splitlines()[0]
+  subparser = subparsers.add_parser(
+      name=name, description=help, help=help.rstrip('.'), parents=parents)
+  subparser.set_defaults(method=method, positional=[])
+  argspec = inspect.getargspec(method)
+
+  # Figure out positionals and default argument, if any. Explicitly includes
+  # arguments that default to '' but excludes arguments that default to None.
+  offset = len(argspec.args) - len(argspec.defaults or []) - 1
+  positional = []
+  for i in xrange(1, len(argspec.args)):
+    if i > offset and argspec.defaults[i-offset-1] is None:
+      break
+    positional.append(argspec.args[i])
+  defaults = [None] * offset + list(argspec.defaults or [])
+
+  # Add all arguments so they append to args.positional.
+  args_help = _DocToArgs(method.__doc__)
+  for name, default in zip(positional, defaults):
+    if not isinstance(default, (None.__class__, str)):
+      continue
+    subparser.add_argument(
+        name, help=(arguments or {}).get(name, args_help.get(name)),
+        default=default, nargs='?' if default is not None else None,
+        action=PositionalArg)
+  if argspec.varargs:
+    subparser.add_argument(
+        argspec.varargs, nargs=argparse.REMAINDER,
+        help=(arguments or {}).get(argspec.varargs, args_help.get(argspec.varargs)))
+  return subparser
+
+
+def _RunMethod(dev, args, extra):
+  """Runs a method registered via MakeSubparser."""
+  logging.info('%s(%s)', args.method.__name__, ', '.join(args.positional))
+  result = args.method(dev, *args.positional, **extra)
+  if result is not None:
+    if isinstance(result, cStringIO.OutputType):
+      sys.stdout.write(result.getvalue())
+    elif isinstance(result, (list, types.GeneratorType)):
+      r = ''
+      for r in result:
+        r = str(r)
+        sys.stdout.write(r)
+      if not r.endswith('\n'):
+        sys.stdout.write('\n')
+    else:
+      result = str(result)
+      sys.stdout.write(result)
+      if not result.endswith('\n'):
+        sys.stdout.write('\n')
+  return 0
+
+
+def StartCli(args, device_factory, extra=None, **device_kwargs):
+  """Starts a common CLI interface for this usb path and protocol."""
   try:
-    dev = device_callback(
-        port_path=port_path, serial=serial, **device_kwargs)
+    dev = device_factory(
+        port_path=args.port_path, serial=args.serial,
+        default_timeout_ms=args.timeout_ms, **device_kwargs)
   except usb_exceptions.DeviceNotFoundError as e:
     print >> sys.stderr, 'No device found: %s' % e
-    return
+    return 1
   except usb_exceptions.CommonUsbError as e:
     print >> sys.stderr, 'Could not connect to device: %s' % e
-    raise
-
-  if not argv:
-    Usage(dev)
-    return
-
-  kwargs = {}
-
-  # CamelCase method names, eg reboot-bootloader -> RebootBootloader
-  method_name = Camelcase(argv[0])
-  method = getattr(dev, method_name)
-  argspec = inspect.getargspec(method)
-  num_args = len(argspec.args) - 1  # self is the first one.
-  # Handle putting the remaining command line args into the last normal arg.
-  argv.pop(0)
-
-  # Flags -> Keyword args
-  if kwarg_callback:
-    kwarg_callback(kwargs, argspec)
-
+    return 1
   try:
-    if num_args == 1:
-      # Only one argument, so join them all with spaces
-      result = method(' '.join(argv), **kwargs)
-    else:
-      result = method(*argv, **kwargs)
-
-    if result is not None:
-      if isinstance(result, cStringIO.OutputType):
-        sys.stdout.write(result.getvalue())
-      elif isinstance(result, (list, types.GeneratorType)):
-        for r in result:
-          r = str(r)
-          sys.stdout.write(r)
-          if not r.endswith('\n'):
-            sys.stdout.write('\n')
-      else:
-        sys.stdout.write(result)
-    sys.stdout.write('\n')
+    return _RunMethod(dev, args, extra or {})
   except Exception as e:  # pylint: disable=broad-except
     sys.stdout.write(str(e))
-    return
+    return 1
   finally:
     dev.Close()
-
