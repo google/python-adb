@@ -1,0 +1,29 @@
+language: python
+
+sudo: false
+
+python:
+  - 2.7
+
+addons:
+  apt:
+    packages:
+      - swig
+      - libusb-1.0-0-dev
+
+cache:
+  pip: true
+  apt: true
+  directories:
+    - $HOME/.cache/pip
+
+install:
+  - pip install tox coveralls
+
+env:
+  - TOXENV=py27
+
+script: tox
+
+after_success:
+  - coveralls
