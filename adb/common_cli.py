@@ -28,7 +28,7 @@ import sys
 import textwrap
 import types
 
-import usb_exceptions
+from adb import usb_exceptions
 
 
 class _PortPathAction(argparse.Action):
