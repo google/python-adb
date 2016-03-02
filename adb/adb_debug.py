@@ -12,15 +12,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""ADB debugging binary.
 
-Call it similar to how you call android's adb. Takes either --serial or
---port_path to connect to a device.
-"""
+"""Daemon-less ADB client in python."""
+
+import argparse
+import functools
+import logging
 import os
+import stat
 import sys
-
-import gflags
+import time
 
 import adb_commands
 import common_cli
@@ -36,34 +37,142 @@ except ImportError:
     rsa_signer = None
 
 
-gflags.ADOPT_module_key_flags(common_cli)
+def Devices(args):
+  """Lists the available devices.
 
-gflags.DEFINE_multistring('rsa_key_path', '~/.android/adbkey',
-                         'RSA key(s) to use')
-gflags.DEFINE_integer('auth_timeout_s', 60,
-                     'Seconds to wait for the dialog to be accepted when using '
-                     'authenticated ADB.')
-FLAGS = gflags.FLAGS
-
-
-def GetRSAKwargs():
-  if FLAGS.rsa_key_path:
-    if rsa_signer is None:
-      print >> sys.stderr, 'Please install either M2Crypto or python-rsa'
-      sys.exit(1)
-    return {
-        'rsa_keys': [rsa_signer(os.path.expanduser(path))
-                     for path in FLAGS.rsa_key_path],
-        'auth_timeout_ms': int(FLAGS.auth_timeout_s * 1000.0),
-    }
-  return {}
+  Mimics 'adb devices' output:
+    List of devices attached
+    015DB7591102001A        device        1,2
+  """
+  for d in adb_commands.AdbCommands.Devices():
+    if args.output_port_path:
+      print('%s\tdevice\t%s' % (
+            d.serial_number, ','.join(str(p) for p in d.port_path)))
+    else:
+      print('%s\tdevice' % d.serial_number)
+  return 0
 
 
-def main(argv):
-  common_cli.StartCli(
-      argv, adb_commands.AdbCommands.ConnectDevice,
-      list_callback=adb_commands.AdbCommands.Devices, **GetRSAKwargs())
+def List(self, device_path):
+  """Prints a directory listing.
+
+  Args:
+    device_path: Directory to list.
+  """
+  files = adb_commands.AdbCommands.List(self, device_path)
+  files.sort(key=lambda x: x.filename)
+  maxname = max(len(f.filename) for f in files)
+  maxsize = max(len(str(f.size)) for f in files)
+  for f in files:
+    mode = (
+      ('d' if stat.S_ISDIR(f.mode) else '-') +
+      ('r' if f.mode & stat.S_IRUSR else '-') +
+      ('w' if f.mode & stat.S_IWUSR else '-') +
+      ('x' if f.mode & stat.S_IXUSR else '-') +
+      ('r' if f.mode & stat.S_IRGRP else '-') +
+      ('w' if f.mode & stat.S_IWGRP else '-') +
+      ('x' if f.mode & stat.S_IXGRP else '-') +
+      ('r' if f.mode & stat.S_IROTH else '-') +
+      ('w' if f.mode & stat.S_IWOTH else '-') +
+      ('x' if f.mode & stat.S_IXOTH else '-'))
+    t = time.gmtime(f.mtime)
+    yield '%s %*d %04d-%02d-%02d %02d:%02d:%02d %-*s\n' % (
+        mode, maxsize, f.size,
+        t.tm_year, t.tm_mon, t.tm_mday, t.tm_hour, t.tm_min, t.tm_sec,
+        maxname, f.filename)
+
+
+@functools.wraps(adb_commands.AdbCommands.Logcat)
+def Logcat(self, *options):
+  return adb_commands.AdbCommands.Logcat(self, ' '.join(options))
+
+
+def Shell(self, *command):
+  """Runs a command on the device and prints the stdout.
+
+  Args:
+    command: Command to run on the target.
+  """
+  return adb_commands.AdbCommands.StreamingShell(self, ' '.join(command))
+
+
+def main():
+  common = common_cli.GetCommonArguments()
+  common.add_argument(
+      '--rsa_key_path', action='append', default=[],
+      metavar='~/.android/adbkey',
+      help='RSA key(s) to use, use multiple times to load mulitple keys')
+  common.add_argument(
+    '--auth_timeout_s', default=60., metavar='60', type=int,
+    help='Seconds to wait for the dialog to be accepted when using '
+         'authenticated ADB.')
+  device = common_cli.GetDeviceArguments()
+  parents = [common, device]
+
+  parser = argparse.ArgumentParser(
+      description=sys.modules[__name__].__doc__, parents=[common])
+  subparsers = parser.add_subparsers(title='Commands', dest='command_name')
+
+  subparser = subparsers.add_parser(
+      name='help', help='Prints the commands available')
+  subparser = subparsers.add_parser(
+      name='devices', help='Lists the available devices', parents=[common])
+  subparser.add_argument(
+      '--output_port_path', action='store_true',
+      help='Outputs the port_path alongside the serial')
+
+  common_cli.MakeSubparser(
+      subparsers, parents, adb_commands.AdbCommands.Install)
+  common_cli.MakeSubparser(subparsers, parents, List)
+  common_cli.MakeSubparser(subparsers, parents, Logcat)
+  common_cli.MakeSubparser(
+      subparsers, parents, adb_commands.AdbCommands.Push,
+      {'source_file': 'Filename or directory to push to the device.'})
+  common_cli.MakeSubparser(
+      subparsers, parents, adb_commands.AdbCommands.Pull,
+      {
+        'dest_file': 'Filename to write to on the host, if not specified, '
+                     'prints the content to stdout.',
+      })
+  common_cli.MakeSubparser(
+      subparsers, parents, adb_commands.AdbCommands.Reboot)
+  common_cli.MakeSubparser(
+      subparsers, parents, adb_commands.AdbCommands.RebootBootloader)
+  common_cli.MakeSubparser(
+      subparsers, parents, adb_commands.AdbCommands.Remount)
+  common_cli.MakeSubparser(subparsers, parents, adb_commands.AdbCommands.Root)
+  common_cli.MakeSubparser(subparsers, parents, Shell)
+
+  if len(sys.argv) == 1:
+    parser.print_help()
+    return 2
+
+  args = parser.parse_args()
+  if args.verbose:
+    logging.basicConfig(level=logging.DEBUG)
+  if not args.rsa_key_path:
+    default = os.path.expanduser('~/.android/adbkey')
+    if os.path.isfile(default):
+      args.rsa_key_path = [default]
+  if args.rsa_key_path and not rsa_signer:
+    parser.error('Please install either M2Crypto or python-rsa')
+  # Hacks so that the generated doc is nicer.
+  if args.command_name == 'devices':
+    return Devices(args)
+  if args.command_name == 'help':
+    parser.print_help()
+    return 0
+  if args.command_name == 'logcat':
+    args.positional = args.options
+  elif args.command_name == 'shell':
+    args.positional = args.command
+
+  return common_cli.StartCli(
+      args,
+      adb_commands.AdbCommands.ConnectDevice,
+      auth_timeout_ms=args.auth_timeout_s * 1000,
+      rsa_keys=[rsa_signer(path) for path in args.rsa_key_path])
 
 
 if __name__ == '__main__':
-  main(FLAGS(sys.argv))
+  sys.exit(main())
