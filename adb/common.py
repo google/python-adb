@@ -23,7 +23,7 @@ import weakref
 import libusb1
 import usb1
 
-import usb_exceptions
+from adb import usb_exceptions
 
 DEFAULT_TIMEOUT_MS = 1000
 

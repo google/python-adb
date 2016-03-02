@@ -24,8 +24,8 @@ import time
 
 import libusb1
 
-import adb_protocol
-import usb_exceptions
+from adb import adb_protocol
+from adb import usb_exceptions
 
 # Default mode for pushed files.
 DEFAULT_PUSH_MODE = stat.S_IFREG | stat.S_IRWXU | stat.S_IRWXG

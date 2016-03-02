@@ -24,10 +24,14 @@ import inspect
 import logging
 import sys
 
-import progressbar
+from adb import common_cli
+from adb import fastboot
 
-import common_cli
-import fastboot
+try:
+  import progressbar
+except ImportError:
+  # progressbar is optional.
+  progressbar = None
 
 
 def Devices(args):
@@ -100,7 +104,7 @@ def main():
   argspec = inspect.getargspec(args.method)
   if 'info_cb' in argspec.args:
     kwargs['info_cb'] = _InfoCb
-  if 'progress_callback' in argspec.args:
+  if 'progress_callback' in argspec.args and progressbar:
     bar = progressbar.ProgessBar(
         widgets=[progressbar.Bar(), progressbar.Percentage()])
     bar.start()
