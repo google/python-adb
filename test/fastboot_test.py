@@ -19,12 +19,9 @@ import os
 import tempfile
 import unittest
 
-import gflags
-
 import common_stub
 from adb import fastboot
 
-FLAGS = gflags.FLAGS
 
 class FastbootTest(unittest.TestCase):
 
