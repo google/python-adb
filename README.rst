@@ -1,5 +1,7 @@
 python-adb
 ==========
+[![Coverage Status][coverage_img]][coverage_link]
+[![Build Status][build_img]][build_link]
 
 This repository contains a pure-python implementation of the ADB and Fastboot
 protocols, using libusb1 for USB communications.
@@ -32,3 +34,8 @@ Dependencies:
   * One of:
     * python-m2crypto (0.21.1+)
     * python-rsa (3.2+)
+
+[coverage_img]: https://coveralls.io/repos/github/google/python-adb/badge.svg?branch=master
+[coverage_link]: https://coveralls.io/github/google/python-adb?branch=master
+[build_img]: https://travis-ci.org/google/python-adb.svg?branch=master
+[build_link]: https://travis-ci.org/google/python-adb
