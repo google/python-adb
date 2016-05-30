@@ -246,4 +246,4 @@ class AdbCommands(object):
     Args:
       options: Arguments to pass to 'logcat'.
     """
-    return self.StreamingCommand('logcat %s' % options, timeout_ms)
+    return self.StreamingShell('logcat %s' % options, timeout_ms)
