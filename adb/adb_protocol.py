@@ -300,7 +300,7 @@ class AdbMessage(object):
       try:
         cmd, arg0, unused_arg1, banner = cls.Read(
             usb, ['CNXN'], timeout_ms=auth_timeout_ms)
-      except usb_exceptions.BulkReadFailedError as e:
+      except usb_exceptions.ReadFailedError as e:
         if e.usb_error.value == -7:  # Timeout.
           raise usb_exceptions.DeviceAuthError(
               'Accept auth key on device, then retry.')
