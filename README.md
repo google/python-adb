@@ -25,6 +25,27 @@ can be run similar to native `adb` and `fastboot` via the python interpreter:
     python adb.zip devices
     python adb.zip shell ls /sdcard
 
+### Using as a Python Library
+
+A [presentation was made at PyCon 2016][pycon_preso], and here's some demo code:
+
+```python
+import os.path as op
+
+from adb import adb_commands
+from adb import sign_m2crypto
+
+
+# KitKat+ devices require authentication
+signer = sign_m2crypto.M2CryptoSigner(
+    op.expanduser('~/.android/adbkey'))
+# Connect to the device
+device = adb_commands.AdbCommands.ConnectDevice(
+    rsa_keys=[signer])
+# Now we can use Shell, Pull, Push, etc!
+for i in xrange(10):
+  print device.Shell('echo %d' % i)
+```
 
 ### Pros
 
@@ -57,3 +78,4 @@ can be run similar to native `adb` and `fastboot` via the python interpreter:
 [coverage_link]: https://coveralls.io/github/google/python-adb?branch=master
 [build_img]: https://travis-ci.org/google/python-adb.svg?branch=master
 [build_link]: https://travis-ci.org/google/python-adb
+[pycon_preso]: https://docs.google.com/a/google.com/presentation/d/e/2PACX-1vQ6DsSqOZ3oJBPM72OfxAz7FIxZ0f6tM8ZvAjp15ck9xr5cbtFBgshgOdlIAMmCoO8XmGVOc_c4iWqR/pub?start=false&loop=false&delayms=15000
