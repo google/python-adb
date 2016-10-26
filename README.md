@@ -78,4 +78,4 @@ for i in xrange(10):
 [coverage_link]: https://coveralls.io/github/google/python-adb?branch=master
 [build_img]: https://travis-ci.org/google/python-adb.svg?branch=master
 [build_link]: https://travis-ci.org/google/python-adb
-[pycon_preso]: https://docs.google.com/a/google.com/presentation/d/e/2PACX-1vQ6DsSqOZ3oJBPM72OfxAz7FIxZ0f6tM8ZvAjp15ck9xr5cbtFBgshgOdlIAMmCoO8XmGVOc_c4iWqR/pub?start=false&loop=false&delayms=15000
+[pycon_preso]: https://docs.google.com/presentation/d/1bv8pmm8TZp4aFxoq2ohA-ms_a3BWci7D3tYvVGIm8T0/pub?start=false&loop=false&delayms=10000
