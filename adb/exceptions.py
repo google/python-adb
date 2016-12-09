@@ -14,11 +14,11 @@
 """Common exceptions for ADB and Fastboot."""
 
 
-class CommonUsbError(Exception):
-  """Base class for usb communication errors."""
+class CommonError(Exception):
+  """Base class for communication errors."""
 
 
-class FormatMessageWithArgumentsException(CommonUsbError):
+class FormatMessageWithArgumentsException(CommonError):
   """Exception that both looks good and is functional.
 
   Okay, not that kind of functional, it's still a class.
@@ -40,27 +40,26 @@ class DeviceAuthError(FormatMessageWithArgumentsException):
   """Device authentication failed."""
 
 
-class LibusbWrappingError(CommonUsbError):
-  """Wraps libusb1 errors while keeping its original usefulness.
+class WrappingError(CommonError):
+  """Wraps errors with a new message.
 
   Attributes:
-    usb_error: Instance of libusb1.USBError
+    wrapped: Underlying error. May be an instance of libusb1.USBError.
   """
 
-  def __init__(self, msg, usb_error):
-    super(LibusbWrappingError, self).__init__(msg)
-    self.usb_error = usb_error
+  def __init__(self, msg, wrapped):
+    super(WrappingError, self).__init__(msg)
+    self.wrapped = wrapped
 
   def __str__(self):
-    return '%s: %s' % (
-        super(LibusbWrappingError, self).__str__(), str(self.usb_error))
+    return '%s: %s' % (super(WrappingError, self).__str__(), str(self.wrapped))
 
 
-class WriteFailedError(LibusbWrappingError):
+class WriteFailedError(WrappingError):
   """Raised when the device doesn't accept our command."""
 
 
-class ReadFailedError(LibusbWrappingError):
+class ReadFailedError(WrappingError):
   """Raised when the device doesn't respond to our commands."""
 
 

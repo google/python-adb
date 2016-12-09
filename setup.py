@@ -43,9 +43,10 @@ Android project's ADB.
 
     keywords = ['android', 'adb', 'fastboot'],
 
-    install_requires = ['libusb1>=1.0.16', 'M2Crypto>=0.21.1'],
+    install_requires = ['M2Crypto>=0.21.1'],
 
     extra_requires = {
+        'usb': 'libusb1>=1.0.16',
         'fastboot': 'progressbar>=2.3'
     },
 

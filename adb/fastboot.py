@@ -153,7 +153,7 @@ class FastbootProtocol(object):
       OKAY packet's message.
     """
     while True:
-      response = self.usb.BulkRead(64, timeout_ms=timeout_ms)
+      response = self.usb.Read(64, timeout_ms=timeout_ms)
       header = response[:4]
       remaining = response[4:]
 
@@ -193,7 +193,7 @@ class FastbootProtocol(object):
     while length:
       tmp = data.read(self.chunk_kb * 1024)
       length -= len(tmp)
-      self.usb.BulkWrite(tmp)
+      self.usb.Write(tmp)
 
       if progress_callback:
         progress.send(len(tmp))

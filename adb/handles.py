@@ -20,10 +20,14 @@ import socket
 import threading
 import weakref
 
-import libusb1
-import usb1
+try:
+  import libusb1
+  import usb1
+except ImportError:
+  libusb1 = None
+  usb1 = None
 
-from adb import usb_exceptions
+from adb import exceptions
 
 DEFAULT_TIMEOUT_MS = 1000
 
@@ -53,12 +57,100 @@ class UsbHandle(object):
 
   Important methods:
     FlushBuffers()
-    BulkRead(int length)
-    BulkWrite(bytes data)
+    Read(int length)
+    Write(bytes data)
   """
 
   _HANDLE_CACHE = weakref.WeakValueDictionary()
   _HANDLE_CACHE_LOCK = threading.Lock()
+
+  @classmethod
+  def FindAndOpen(cls, setting_matcher,
+                  port_path=None, serial=None, timeout_ms=None):
+    dev = cls.Find(
+        setting_matcher, port_path=port_path, serial=serial,
+        timeout_ms=timeout_ms)
+    dev.Open()
+    dev.FlushBuffers()
+    return dev
+
+  @classmethod
+  def Find(cls, setting_matcher, port_path=None, serial=None, timeout_ms=None):
+    """Gets the first device that matches according to the keyword args."""
+    if port_path:
+      device_matcher = cls.PortPathMatcher(port_path)
+      usb_info = port_path
+    elif serial:
+      device_matcher = cls.SerialMatcher(serial)
+      usb_info = serial
+    else:
+      device_matcher = None
+      usb_info = 'first'
+    return cls.FindFirst(setting_matcher, device_matcher,
+                         usb_info=usb_info, timeout_ms=timeout_ms)
+
+  @classmethod
+  def FindFirst(cls, setting_matcher, device_matcher=None, **kwargs):
+    """Find and return the first matching device.
+
+    Args:
+      setting_matcher: See cls.FindDevices.
+      device_matcher: See cls.FindDevices.
+      **kwargs: See cls.FindDevices.
+
+    Returns:
+      An instance of UsbHandle.
+
+    Raises:
+      DeviceNotFoundError: Raised if the device is not available.
+    """
+    try:
+      return next(cls.FindDevices(
+          setting_matcher, device_matcher=device_matcher, **kwargs))
+    except StopIteration:
+      raise exceptions.DeviceNotFoundError(
+          'No device available, or it is in the wrong configuration.')
+
+  @classmethod
+  def FindDevices(cls, setting_matcher, device_matcher=None,
+                  usb_info='', timeout_ms=None):
+    """Find and yield the devices that match.
+
+    Args:
+      setting_matcher: Function that returns the setting to use given a
+        usb1.USBDevice, or None if the device doesn't have a valid setting.
+      device_matcher: Function that returns True if the given UsbHandle is
+        valid. None to match any device.
+      usb_info: Info string describing device(s).
+      timeout_ms: Default timeout of commands in milliseconds.
+
+    Yields:
+      UsbHandle instances
+    """
+    if usb1 is None:
+      raise ImportError('python-libusb1 must be installed to ')
+    ctx = usb1.USBContext()
+    for device in ctx.getDeviceList(skip_on_error=True):
+      setting = setting_matcher(device)
+      if setting is None:
+        continue
+
+      handle = cls(device, setting, usb_info=usb_info, timeout_ms=timeout_ms)
+      if device_matcher is None or device_matcher(handle):
+        yield handle
+
+  @classmethod
+  def PortPathMatcher(cls, port_path):
+    """Returns a device matcher for the given port path."""
+    if isinstance(port_path, basestring):
+      # Convert from sysfs path to port_path.
+      port_path = [int(part) for part in SYSFS_PORT_SPLIT_RE.split(port_path)]
+    return lambda device: device.port_path == port_path
+
+  @classmethod
+  def SerialMatcher(cls, serial):
+    """Returns a device matcher for the given serial."""
+    return lambda device: device.serial_number == serial
 
   def __init__(self, device, setting, usb_info=None, timeout_ms=None):
     """Initialize USB Handle.
@@ -154,123 +246,37 @@ class UsbHandle(object):
   def FlushBuffers(self):
     while True:
       try:
-        self.BulkRead(self._max_read_packet_len, timeout_ms=10)
-      except usb_exceptions.ReadFailedError as e:
+        self.Read(self._max_read_packet_len, timeout_ms=10)
+      except exceptions.ReadFailedError as e:
         if e.usb_error.value == libusb1.LIBUSB_ERROR_TIMEOUT:
           break
         raise
 
-  def BulkWrite(self, data, timeout_ms=None):
+  def Write(self, data, timeout_ms=None):
     if self._handle is None:
-      raise usb_exceptions.WriteFailedError(
+      raise exceptions.WriteFailedError(
           'This handle has been closed, probably due to another being opened.',
           None)
     try:
       return self._handle.bulkWrite(
           self._write_endpoint, data, timeout=self.Timeout(timeout_ms))
     except libusb1.USBError as e:
-      raise usb_exceptions.WriteFailedError(
+      raise exceptions.WriteFailedError(
           'Could not send data to %s (timeout %sms)' % (
               self.usb_info, self.Timeout(timeout_ms)), e)
 
-  def BulkRead(self, length, timeout_ms=None):
+  def Read(self, length, timeout_ms=None):
     if self._handle is None:
-      raise usb_exceptions.ReadFailedError(
+      raise exceptions.ReadFailedError(
           'This handle has been closed, probably due to another being opened.',
           None)
     try:
       return self._handle.bulkRead(
           self._read_endpoint, length, timeout=self.Timeout(timeout_ms))
     except libusb1.USBError as e:
-      raise usb_exceptions.ReadFailedError(
+      raise exceptions.ReadFailedError(
           'Could not receive data from %s (timeout %sms)' % (
               self.usb_info, self.Timeout(timeout_ms)), e)
-
-  @classmethod
-  def PortPathMatcher(cls, port_path):
-    """Returns a device matcher for the given port path."""
-    if isinstance(port_path, basestring):
-      # Convert from sysfs path to port_path.
-      port_path = [int(part) for part in SYSFS_PORT_SPLIT_RE.split(port_path)]
-    return lambda device: device.port_path == port_path
-
-  @classmethod
-  def SerialMatcher(cls, serial):
-    """Returns a device matcher for the given serial."""
-    return lambda device: device.serial_number == serial
-
-  @classmethod
-  def FindAndOpen(cls, setting_matcher,
-                  port_path=None, serial=None, timeout_ms=None):
-    dev = cls.Find(
-        setting_matcher, port_path=port_path, serial=serial,
-        timeout_ms=timeout_ms)
-    dev.Open()
-    dev.FlushBuffers()
-    return dev
-
-  @classmethod
-  def Find(cls, setting_matcher, port_path=None, serial=None, timeout_ms=None):
-    """Gets the first device that matches according to the keyword args."""
-    if port_path:
-      device_matcher = cls.PortPathMatcher(port_path)
-      usb_info = port_path
-    elif serial:
-      device_matcher = cls.SerialMatcher(serial)
-      usb_info = serial
-    else:
-      device_matcher = None
-      usb_info = 'first'
-    return cls.FindFirst(setting_matcher, device_matcher,
-                         usb_info=usb_info, timeout_ms=timeout_ms)
-
-  @classmethod
-  def FindFirst(cls, setting_matcher, device_matcher=None, **kwargs):
-    """Find and return the first matching device.
-
-    Args:
-      setting_matcher: See cls.FindDevices.
-      device_matcher: See cls.FindDevices.
-      **kwargs: See cls.FindDevices.
-
-    Returns:
-      An instance of UsbHandle.
-
-    Raises:
-      DeviceNotFoundError: Raised if the device is not available.
-    """
-    try:
-      return next(cls.FindDevices(
-          setting_matcher, device_matcher=device_matcher, **kwargs))
-    except StopIteration:
-      raise usb_exceptions.DeviceNotFoundError(
-          'No device available, or it is in the wrong configuration.')
-
-  @classmethod
-  def FindDevices(cls, setting_matcher, device_matcher=None,
-                  usb_info='', timeout_ms=None):
-    """Find and yield the devices that match.
-
-    Args:
-      setting_matcher: Function that returns the setting to use given a
-        usb1.USBDevice, or None if the device doesn't have a valid setting.
-      device_matcher: Function that returns True if the given UsbHandle is
-        valid. None to match any device.
-      usb_info: Info string describing device(s).
-      timeout_ms: Default timeout of commands in milliseconds.
-
-    Yields:
-      UsbHandle instances
-    """
-    ctx = usb1.USBContext()
-    for device in ctx.getDeviceList(skip_on_error=True):
-      setting = setting_matcher(device)
-      if setting is None:
-        continue
-
-      handle = cls(device, setting, usb_info=usb_info, timeout_ms=timeout_ms)
-      if device_matcher is None or device_matcher(handle):
-        yield handle
 
 class TcpHandle(object):
   """TCP connection object.
@@ -297,10 +303,10 @@ class TcpHandle(object):
   def serial_number(self):
     return self._serial_number
 
-  def BulkWrite(self, data, timeout=None):
+  def Write(self, data, timeout=None):
       return self._connection.sendall(data)
 
-  def BulkRead(self, numbytes, timeout=None):
+  def Read(self, numbytes, timeout=None):
       return self._connection.recv(numbytes)
 
   def Timeout(self, timeout_ms):

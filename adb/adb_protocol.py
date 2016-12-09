@@ -202,8 +202,8 @@ class AdbMessage(object):
 
   def Send(self, usb, timeout_ms=None):
     """Send this message over USB."""
-    usb.BulkWrite(self.Pack(), timeout_ms)
-    usb.BulkWrite(self.data, timeout_ms)
+    usb.Write(self.Pack(), timeout_ms)
+    usb.Write(self.data, timeout_ms)
 
   @classmethod
   def Read(cls, usb, expected_cmds, timeout_ms=None, total_timeout_ms=None):
@@ -211,7 +211,7 @@ class AdbMessage(object):
     total_timeout_ms = usb.Timeout(total_timeout_ms)
     start = time.time()
     while True:
-      msg = usb.BulkRead(24, timeout_ms)
+      msg = usb.Read(24, timeout_ms)
       cmd, arg0, arg1, data_length, data_checksum = cls.Unpack(msg)
       command = cls.constants.get(cmd)
       if not command:
@@ -228,7 +228,7 @@ class AdbMessage(object):
     if data_length > 0:
       data = ''
       while data_length > 0:
-          temp = usb.BulkRead(data_length, timeout_ms)
+          temp = usb.Read(data_length, timeout_ms)
           data += temp
           data_length -= len(temp)
 
@@ -245,7 +245,7 @@ class AdbMessage(object):
     """Establish a new connection to the device.
 
     Args:
-      usb: A USBHandle with BulkRead and BulkWrite methods.
+      usb: A USBHandle with Read and Write methods.
       banner: A string to send as a host identifier.
       rsa_keys: List of AuthSigner subclass instances to be used for
           authentication. The device can either accept one of these via the Sign
@@ -316,7 +316,7 @@ class AdbMessage(object):
     Not the same as the posix 'open' or any other google3 Open methods.
 
     Args:
-      usb: USB device handle with BulkRead and BulkWrite methods.
+      usb: USB device handle with Read and Write methods.
       destination: The service:command string.
       timeout_ms: Timeout in milliseconds for USB packets.
 
@@ -354,7 +354,7 @@ class AdbMessage(object):
     can fill up memory.
 
     Args:
-      usb: USB device handle with BulkRead and BulkWrite methods.
+      usb: USB device handle with Read and Write methods.
       service: The service on the device to talk to.
       command: The command to send to the service.
       timeout_ms: Timeout for USB packets, in milliseconds.
@@ -377,7 +377,7 @@ class AdbMessage(object):
     can fill up memory.
 
     Args:
-      usb: USB device handle with BulkRead and BulkWrite methods.
+      usb: USB device handle with Read and Write methods.
       service: The service on the device to talk to.
       command: The command to send to the service.
       timeout_ms: Timeout for USB packets, in milliseconds.
