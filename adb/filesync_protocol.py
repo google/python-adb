@@ -135,12 +135,12 @@ class FileSyncConnection(object):
     self.adb = adb_connection
 
     # Sending
-    self.send_buffer = ''
+    self.send_buffer = b''
     self.send_header_len = struct.calcsize('<2I')
 
     # Receiving
     self.recv_buffer = ''
-    self.recv_header_format = recv_header_format
+    self.recv_header_format = recv_header_format.encode('utf8')
     self.recv_header_len = struct.calcsize(recv_header_format)
 
   def Send(self, command_id, data='', size=0):
@@ -158,10 +158,9 @@ class FileSyncConnection(object):
       size = len(data)
 
     if not self._CanAddToSendBuffer(len(data)):
-      self._Flush()
-
+      self._Flush() 
     header = struct.pack('<2I', self.id_to_wire[command_id], size)
-    self.send_buffer += header + data
+    self.send_buffer += header + data.encode('utf8')
 
   def Read(self, expected_ids, read_data=True):
     """Read ADB messages and return FileSync packets."""
@@ -169,7 +168,7 @@ class FileSyncConnection(object):
       self._Flush()
 
     # Read one filesync packet off the recv buffer.
-    header_data = self._ReadBuffered(self.recv_header_len)
+    header_data = self._ReadBuffered(self.recv_header_len).encode('utf8')
     header = struct.unpack(self.recv_header_format, header_data)
     # Header is (ID, ...).
     command_id = self.wire_to_id[header[0]]

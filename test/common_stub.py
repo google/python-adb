@@ -20,9 +20,11 @@ class StubUsb(object):
 
   def BulkWrite(self, data, unused_timeout_ms=None):
     expected_data = self.written_data.pop(0)
+    if type(expected_data) != type(data) and isinstance(expected_data, bytes):
+      expected_data = expected_data.decode('utf8')
     if expected_data != data:
-      raise ValueError('Expected %s, got %s (%s)' % (
-          _Dotify(expected_data), binascii.hexlify(data), _Dotify(data)))
+      raise ValueError('Expected %s got %s (%s)' % (
+          _Dotify(expected_data),  binascii.hexlify(data), _Dotify(data)))
 
   def BulkRead(self, length,
                timeout_ms=None):  # pylint: disable=unused-argument

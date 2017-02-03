@@ -3,7 +3,7 @@ language: python
 sudo: false
 
 python:
-  - 2.7
+  - 3.6
 
 addons:
   apt:
@@ -21,6 +21,7 @@ install:
   - pip install tox coveralls
 
 env:
+  - TOXENV=py36
   - TOXENV=py27
 
 script: tox

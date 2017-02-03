@@ -22,7 +22,7 @@ subprocess and a network socket.
 All timeouts are in milliseconds.
 """
 
-import cStringIO
+import io
 import os
 import socket
 
@@ -142,7 +142,7 @@ class AdbCommands(object):
       mtime: Optional, modification time to set on the file.
       timeout_ms: Expected timeout for any part of the push.
     """
-    if isinstance(source_file, basestring):
+    if isinstance(source_file, str):
       if os.path.isdir(source_file):
         self.Shell("mkdir " + device_filename)
         for f in os.listdir(source_file):
@@ -168,8 +168,8 @@ class AdbCommands(object):
       The file data if dest_file is not set.
     """
     if not dest_file:
-      dest_file = cStringIO.StringIO()
-    elif isinstance(dest_file, basestring):
+      dest_file = io.StringIO()
+    elif isinstance(dest_file, str):
       dest_file = open(dest_file, 'w')
     connection = self.protocol_handler.Open(
         self.handle, destination='sync:',
@@ -178,7 +178,7 @@ class AdbCommands(object):
     connection.Close()
     # An empty call to cStringIO.StringIO returns an instance of
     # cStringIO.OutputType.
-    if isinstance(dest_file, cStringIO.OutputType):
+    if isinstance(dest_file, io.StringIO):
       return dest_file.getvalue()
 
   def Stat(self, device_filename):

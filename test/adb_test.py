@@ -14,7 +14,7 @@
 # limitations under the License.
 """Tests for adb."""
 
-import cStringIO
+import io
 import struct
 import unittest
 
@@ -159,7 +159,7 @@ class FilesyncAdbTest(BaseAdbTest):
 
   @classmethod
   def _MakeWriteSyncPacket(cls, command, data='', size=None):
-    return cls._MakeSyncHeader(command, size or len(data)) + data
+    return cls._MakeSyncHeader(command, size or len(data)) + data.encode("ascii")
 
   @classmethod
   def _ExpectSyncCommand(cls, write_commands, read_commands):
@@ -180,7 +180,7 @@ class FilesyncAdbTest(BaseAdbTest):
     return usb
 
   def testPush(self):
-    filedata = 'alo there, govnah'
+    filedata = u'alo there, govnah'
     mtime = 100
 
     send = [
@@ -189,10 +189,10 @@ class FilesyncAdbTest(BaseAdbTest):
         self._MakeWriteSyncPacket('DONE', size=mtime),
     ]
     data = 'OKAY\0\0\0\0'
-    usb = self._ExpectSyncCommand([''.join(send)], [data])
+    usb = self._ExpectSyncCommand([b''.join(send)], [data])
 
     adb_commands = self._Connect(usb)
-    adb_commands.Push(cStringIO.StringIO(filedata), '/data', mtime=mtime)
+    adb_commands.Push(io.StringIO(filedata), '/data', mtime=mtime)
 
   def testPull(self):
     filedata = "g'ddayta, govnah"
@@ -202,7 +202,7 @@ class FilesyncAdbTest(BaseAdbTest):
         self._MakeWriteSyncPacket('DATA', filedata),
         self._MakeWriteSyncPacket('DONE'),
     ]
-    usb = self._ExpectSyncCommand([recv], [''.join(data)])
+    usb = self._ExpectSyncCommand([recv], [b''.join(data)])
     adb_commands = self._Connect(usb)
     self.assertEqual(filedata, adb_commands.Pull('/data'))
 
