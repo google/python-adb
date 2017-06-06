@@ -184,9 +184,13 @@ class AdbMessage(object):
   @staticmethod
   def CalculateChecksum(data):
     # The checksum is just a sum of all the bytes. I swear.
-    if isinstance(data, bytes):
-        return sum(map(ord, data.decode('ascii'))) & 0xFFFFFFFF
-    return sum(map(ord, data)) & 0xFFFFFFFF
+    if isinstance(data, bytearray):
+        total = sum(data)
+    elif isinstance(data, bytes):
+        total = sum(map(ord, data.decode('ascii')))
+    else:
+        total = sum(map(ord, data))
+    return total & 0xFFFFFFFF
 
   def Pack(self):
     """Returns this message in an over-the-wire format."""
