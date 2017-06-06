@@ -179,8 +179,11 @@ class UsbHandle(object):
           'This handle has been closed, probably due to another being opened.',
           None)
     try:
-      return self._handle.bulkRead(
-          self._read_endpoint, length, timeout=self.Timeout(timeout_ms))
+      # python-libusb1 > 1.6 exposes bytearray()s now instead of bytes/str.
+      # To support older and newer versions, we ensure everything's bytearray()
+      # from here on out.
+      return bytearray(self._handle.bulkRead(
+          self._read_endpoint, length, timeout=self.Timeout(timeout_ms)))
     except libusb1.USBError as e:
       raise usb_exceptions.ReadFailedError(
           'Could not receive data from %s (timeout %sms)' % (

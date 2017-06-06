@@ -33,7 +33,7 @@ class StubUsb(object):
       raise ValueError(
           'Overflow packet length. Read %d bytes, got %d bytes: %s',
           length, len(data))
-    return data
+    return bytearray(data)
 
   def ExpectWrite(self, data):
     self.written_data.append(data)

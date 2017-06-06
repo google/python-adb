@@ -402,4 +402,4 @@ class AdbMessage(object):
     connection = cls.Open(usb, destination='%s:%s' % (service, command),
                           timeout_ms=timeout_ms)
     for data in connection.ReadUntilClose():
-      yield data
+      yield str(data)

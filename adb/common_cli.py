@@ -20,7 +20,7 @@ outputting the results.
 """
 
 import argparse
-import cStringIO
+import io
 import inspect
 import logging
 import re
@@ -125,7 +125,7 @@ def _RunMethod(dev, args, extra):
   logging.info('%s(%s)', args.method.__name__, ', '.join(args.positional))
   result = args.method(dev, *args.positional, **extra)
   if result is not None:
-    if isinstance(result, cStringIO.OutputType):
+    if isinstance(result, io.StringIO):
       sys.stdout.write(result.getvalue())
     elif isinstance(result, (list, types.GeneratorType)):
       r = ''

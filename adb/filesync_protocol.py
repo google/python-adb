@@ -83,7 +83,7 @@ class FilesyncProtocol(object):
     for cmd_id, _, data in cnxn.ReadUntil(('DATA',), 'DONE'):
       if cmd_id == 'DONE':
         break
-      dest_file.write(data)
+      dest_file.write(str(data).decode('utf8'))
 
   @classmethod
   def Push(cls, connection, datafile, filename,
@@ -139,7 +139,7 @@ class FileSyncConnection(object):
     self.send_header_len = struct.calcsize('<2I')
 
     # Receiving
-    self.recv_buffer = ''
+    self.recv_buffer = bytearray()
     self.recv_header_format = recv_header_format.encode('utf8')
     self.recv_header_len = struct.calcsize(recv_header_format)
 
@@ -168,7 +168,7 @@ class FileSyncConnection(object):
       self._Flush()
 
     # Read one filesync packet off the recv buffer.
-    header_data = self._ReadBuffered(self.recv_header_len).encode('utf8')
+    header_data = self._ReadBuffered(self.recv_header_len)
     header = struct.unpack(self.recv_header_format, header_data)
     # Header is (ID, ...).
     command_id = self.wire_to_id[header[0]]
