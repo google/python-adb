@@ -295,7 +295,7 @@ class AdbMessage(object):
           raise InvalidResponseError(
               'Unknown AUTH response: %s %s %s' % (arg0, arg1, banner))
 
-        signed_token = rsa_key.Sign(banner)
+        signed_token = rsa_key.Sign(str(banner))
         msg = cls(
             command='AUTH', arg0=AUTH_SIGNATURE, arg1=0, data=signed_token)
         msg.Send(usb)
