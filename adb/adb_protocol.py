@@ -38,7 +38,7 @@ class InvalidCommandError(Exception):
   """Got an invalid command over USB."""
 
   def __init__(self, message, response_header, response_data):
-    if response_header == 'FAIL':
+    if response_header == b'FAIL':
       message = 'Command failed, device said so. (%s)' % message
     super(InvalidCommandError, self).__init__(
         message, response_header, response_data)
@@ -58,7 +58,7 @@ class InterleavedDataError(Exception):
 
 def MakeWireIDs(ids):
   id_to_wire = {
-      cmd_id: sum(ord(c) << (i * 8) for i, c in enumerate(cmd_id))
+      cmd_id: sum(c << (i * 8) for i, c in enumerate(bytearray(cmd_id)))
       for cmd_id in ids
   }
   wire_to_id = {wire: cmd_id for cmd_id, wire in id_to_wire.items()}
@@ -86,17 +86,17 @@ class _AdbConnection(object):
     self.remote_id = remote_id
     self.timeout_ms = timeout_ms
 
-  def _Send(self, command, arg0, arg1, data=''):
+  def _Send(self, command, arg0, arg1, data=b''):
     message = AdbMessage(command, arg0, arg1, data)
     message.Send(self.usb, self.timeout_ms)
 
   def Write(self, data):
     """Write a packet and expect an Ack."""
-    self._Send('WRTE', arg0=self.local_id, arg1=self.remote_id, data=data)
+    self._Send(b'WRTE', arg0=self.local_id, arg1=self.remote_id, data=data)
     # Expect an ack in response.
-    cmd, okay_data = self.ReadUntil('OKAY')
-    if cmd != 'OKAY':
-      if cmd == 'FAIL':
+    cmd, okay_data = self.ReadUntil(b'OKAY')
+    if cmd != b'OKAY':
+      if cmd == b'FAIL':
         raise usb_exceptions.AdbCommandFailureException(
             'Command failed.', okay_data)
       raise InvalidCommandError(
@@ -105,7 +105,7 @@ class _AdbConnection(object):
     return len(data)
 
   def Okay(self):
-    self._Send('OKAY', arg0=self.local_id, arg1=self.remote_id)
+    self._Send(b'OKAY', arg0=self.local_id, arg1=self.remote_id)
 
   def ReadUntil(self, *expected_cmds):
     """Read a packet, Ack any write packets."""
@@ -118,19 +118,19 @@ class _AdbConnection(object):
           'Incorrect remote id, expected %s got %s' % (
               self.remote_id, remote_id))
     # Ack write packets.
-    if cmd == 'WRTE':
+    if cmd == b'WRTE':
       self.Okay()
     return cmd, data
 
   def ReadUntilClose(self):
     """Yield packets until a Close packet is received."""
     while True:
-      cmd, data = self.ReadUntil('CLSE', 'WRTE')
-      if cmd == 'CLSE':
-        self._Send('CLSE', arg0=self.local_id, arg1=self.remote_id)
+      cmd, data = self.ReadUntil(b'CLSE', b'WRTE')
+      if cmd == b'CLSE':
+        self._Send(b'CLSE', arg0=self.local_id, arg1=self.remote_id)
         break
-      if cmd != 'WRTE':
-        if cmd == 'FAIL':
+      if cmd != b'WRTE':
+        if cmd == b'FAIL':
           raise usb_exceptions.AdbCommandFailureException(
               'Command failed.', data)
         raise InvalidCommandError('Expected a WRITE or a CLOSE, got %s (%s)',
@@ -138,10 +138,10 @@ class _AdbConnection(object):
       yield data
 
   def Close(self):
-    self._Send('CLSE', arg0=self.local_id, arg1=self.remote_id)
-    cmd, data = self.ReadUntil('CLSE')
-    if cmd != 'CLSE':
-      if cmd == 'FAIL':
+    self._Send(b'CLSE', arg0=self.local_id, arg1=self.remote_id)
+    cmd, data = self.ReadUntil(b'CLSE')
+    if cmd != b'CLSE':
+      if cmd == b'FAIL':
         raise usb_exceptions.AdbCommandFailureException('Command failed.', data)
       raise InvalidCommandError('Expected a CLSE response, got %s (%s)',
                                 cmd, data)
@@ -163,14 +163,14 @@ class AdbMessage(object):
     CLOSE(device_id, host_id, '')
   """
 
-  ids = ['SYNC', 'CNXN', 'AUTH', 'OPEN', 'OKAY', 'CLSE', 'WRTE']
+  ids = [b'SYNC', b'CNXN', b'AUTH', b'OPEN', b'OKAY', b'CLSE', b'WRTE']
   commands, constants = MakeWireIDs(ids)
   # An ADB message is 6 words in little-endian.
-  format = '<6I'
+  format = b'<6I'
 
   connections = 0
 
-  def __init__(self, command=None, arg0=None, arg1=None, data=''):
+  def __init__(self, command=None, arg0=None, arg1=None, data=b''):
     self.command = self.commands[command]
     self.magic = self.command ^ 0xFFFFFFFF
     self.arg0 = arg0
@@ -232,13 +232,10 @@ class AdbMessage(object):
             cmd, (timeout_ms, total_timeout_ms))
 
     if data_length > 0:
-      data = ''
+      data = bytearray()
       while data_length > 0:
           temp = usb.BulkRead(data_length, timeout_ms)
-          if isinstance(temp, bytes):
-              data += temp.decode('ascii')
-          else:
-              data += temp
+          data += temp
 
           data_length -= len(temp)
 
@@ -247,11 +244,11 @@ class AdbMessage(object):
         raise InvalidChecksumError(
             'Received checksum %s != %s', (actual_checksum, data_checksum))
     else:
-      data = ''
-    return command, arg0, arg1, data
+      data = b''
+    return command, arg0, arg1, bytes(data)
 
   @classmethod
-  def Connect(cls, usb, banner='notadb', rsa_keys=None, auth_timeout_ms=100):
+  def Connect(cls, usb, banner=b'notadb', rsa_keys=None, auth_timeout_ms=100):
     """Establish a new connection to the device.
 
     Args:
@@ -281,11 +278,11 @@ class AdbMessage(object):
           unexpected way.
     """
     msg = cls(
-        command='CNXN', arg0=VERSION, arg1=MAX_ADB_DATA,
-        data='host::%s\0' % banner)
+        command=b'CNXN', arg0=VERSION, arg1=MAX_ADB_DATA,
+        data=b'host::%s\0' % banner)
     msg.Send(usb)
-    cmd, arg0, arg1, banner = cls.Read(usb, ['CNXN', 'AUTH'])
-    if cmd == 'AUTH':
+    cmd, arg0, arg1, banner = cls.Read(usb, [b'CNXN', b'AUTH'])
+    if cmd == b'AUTH':
       if not rsa_keys:
         raise usb_exceptions.DeviceAuthError(
             'Device authentication required, no keys available.')
@@ -297,19 +294,19 @@ class AdbMessage(object):
 
         signed_token = rsa_key.Sign(str(banner))
         msg = cls(
-            command='AUTH', arg0=AUTH_SIGNATURE, arg1=0, data=signed_token)
+            command=b'AUTH', arg0=AUTH_SIGNATURE, arg1=0, data=signed_token)
         msg.Send(usb)
-        cmd, arg0, unused_arg1, banner = cls.Read(usb, ['CNXN', 'AUTH'])
-        if cmd == 'CNXN':
+        cmd, arg0, unused_arg1, banner = cls.Read(usb, [b'CNXN', b'AUTH'])
+        if cmd == b'CNXN':
           return banner
       # None of the keys worked, so send a public key.
       msg = cls(
-          command='AUTH', arg0=AUTH_RSAPUBLICKEY, arg1=0,
-          data=rsa_keys[0].GetPublicKey() + '\0')
+          command=b'AUTH', arg0=AUTH_RSAPUBLICKEY, arg1=0,
+          data=rsa_keys[0].GetPublicKey() + b'\0')
       msg.Send(usb)
       try:
         cmd, arg0, unused_arg1, banner = cls.Read(
-            usb, ['CNXN'], timeout_ms=auth_timeout_ms)
+            usb, [b'CNXN'], timeout_ms=auth_timeout_ms)
       except usb_exceptions.ReadFailedError as e:
         if e.usb_error.value == -7:  # Timeout.
           raise usb_exceptions.DeviceAuthError(
@@ -339,18 +336,18 @@ class AdbMessage(object):
     """
     local_id = 1
     msg = cls(
-        command='OPEN', arg0=local_id, arg1=0,
-        data=destination + '\0')
+        command=b'OPEN', arg0=local_id, arg1=0,
+        data=destination + b'\0')
     msg.Send(usb, timeout_ms)
-    cmd, remote_id, their_local_id, _ = cls.Read(usb, ['CLSE', 'OKAY'],
+    cmd, remote_id, their_local_id, _ = cls.Read(usb, [b'CLSE', b'OKAY'],
                                                  timeout_ms=timeout_ms)
     if local_id != their_local_id:
       raise InvalidResponseError(
           'Expected the local_id to be %s, got %s' % (local_id, their_local_id))
-    if cmd == 'CLSE':
+    if cmd == b'CLSE':
       # Device doesn't support this service.
       return None
-    if cmd != 'OKAY':
+    if cmd != b'OKAY':
       raise InvalidCommandError('Expected a ready response, got %s' % cmd,
                                 cmd, (remote_id, their_local_id))
     return _AdbConnection(usb, local_id, remote_id, timeout_ms)
@@ -399,7 +396,10 @@ class AdbMessage(object):
     Yields:
       The responses from the service.
     """
-    connection = cls.Open(usb, destination='%s:%s' % (service, command),
-                          timeout_ms=timeout_ms)
+    if isinstance(command, str):
+      command = command.encode('utf8')
+    connection = cls.Open(
+        usb, destination=b'%s:%s' % (service, command),
+        timeout_ms=timeout_ms)
     for data in connection.ReadUntilClose():
-      yield str(data)
+      yield data.decode('utf8')

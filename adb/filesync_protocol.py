@@ -54,22 +54,22 @@ class FilesyncProtocol(object):
 
   @staticmethod
   def Stat(connection, filename):
-    cnxn = FileSyncConnection(connection, '<4I')
-    cnxn.Send('STAT', filename)
-    command, (mode, size, mtime) = cnxn.Read(('STAT',), read_data=False)
+    cnxn = FileSyncConnection(connection, b'<4I')
+    cnxn.Send(b'STAT', filename)
+    command, (mode, size, mtime) = cnxn.Read((b'STAT',), read_data=False)
 
-    if command != 'STAT':
+    if command != b'STAT':
       raise adb_protocol.InvalidResponseError(
           'Expected STAT response to STAT, got %s' % command)
     return mode, size, mtime
 
   @classmethod
   def List(cls, connection, path):
-    cnxn = FileSyncConnection(connection, '<5I')
-    cnxn.Send('LIST', path)
+    cnxn = FileSyncConnection(connection, b'<5I')
+    cnxn.Send(b'LIST', path)
     files = []
-    for cmd_id, header, filename in cnxn.ReadUntil(('DENT',), 'DONE'):
-      if cmd_id == 'DONE':
+    for cmd_id, header, filename in cnxn.ReadUntil((b'DENT',), b'DONE'):
+      if cmd_id == b'DONE':
         break
       mode, size, mtime = header
       files.append(DeviceFile(filename, mode, size, mtime))
@@ -78,12 +78,12 @@ class FilesyncProtocol(object):
   @classmethod
   def Pull(cls, connection, filename, dest_file):
     """Pull a file from the device into the file-like dest_file."""
-    cnxn = FileSyncConnection(connection, '<2I')
-    cnxn.Send('RECV', filename)
-    for cmd_id, _, data in cnxn.ReadUntil(('DATA',), 'DONE'):
-      if cmd_id == 'DONE':
+    cnxn = FileSyncConnection(connection, b'<2I')
+    cnxn.Send(b'RECV', filename)
+    for cmd_id, _, data in cnxn.ReadUntil((b'DATA',), b'DONE'):
+      if cmd_id == b'DONE':
         break
-      dest_file.write(str(data).decode('utf8'))
+      dest_file.write(data.decode('utf8'))
 
   @classmethod
   def Push(cls, connection, datafile, filename,
@@ -100,24 +100,26 @@ class FilesyncProtocol(object):
     Raises:
       PushFailedError: Raised on push failure.
     """
-    fileinfo = '%s,%s' % (filename, st_mode)
+    if not isinstance(filename, bytes):
+      filename = filename.encode('utf8')
+    fileinfo = b'%s,%d' % (filename, st_mode)
 
-    cnxn = FileSyncConnection(connection, '<2I')
-    cnxn.Send('SEND', fileinfo)
+    cnxn = FileSyncConnection(connection, b'<2I')
+    cnxn.Send(b'SEND', fileinfo)
 
     while True:
       data = datafile.read(MAX_PUSH_DATA)
       if not data:
         break
-      cnxn.Send('DATA', data)
+      cnxn.Send(b'DATA', data)
 
     if mtime == 0:
       mtime = int(time.time())
     # DONE doesn't send data, but it hides the last bit of data in the size
     # field.
-    cnxn.Send('DONE', size=mtime)
-    for cmd_id, _, data in cnxn.ReadUntil((), 'OKAY', 'FAIL'):
-      if cmd_id == 'OKAY':
+    cnxn.Send(b'DONE', size=mtime)
+    for cmd_id, _, data in cnxn.ReadUntil((), b'OKAY', b'FAIL'):
+      if cmd_id == b'OKAY':
         return
       raise PushFailedError(data)
 
@@ -126,8 +128,8 @@ class FileSyncConnection(object):
   """Encapsulate a FileSync service connection."""
 
   ids = [
-      'STAT', 'LIST', 'SEND', 'RECV', 'DENT', 'DONE', 'DATA', 'OKAY',
-      'FAIL', 'QUIT',
+      b'STAT', b'LIST', b'SEND', b'RECV', b'DENT', b'DONE', b'DATA', b'OKAY',
+      b'FAIL', b'QUIT',
   ]
   id_to_wire, wire_to_id = adb_protocol.MakeWireIDs(ids)
 
@@ -135,15 +137,17 @@ class FileSyncConnection(object):
     self.adb = adb_connection
 
     # Sending
-    self.send_buffer = b''
-    self.send_header_len = struct.calcsize('<2I')
+    # Using a bytearray() saves a copy later when using libusb.
+    self.send_buffer = bytearray(adb_protocol.MAX_ADB_DATA)
+    self.send_idx = 0
+    self.send_header_len = struct.calcsize(b'<2I')
 
     # Receiving
     self.recv_buffer = bytearray()
-    self.recv_header_format = recv_header_format.encode('utf8')
+    self.recv_header_format = recv_header_format
     self.recv_header_len = struct.calcsize(recv_header_format)
 
-  def Send(self, command_id, data='', size=0):
+  def Send(self, command_id, data=b'', size=0):
     """Send/buffer FileSync packets.
 
     Packets are buffered and only flushed when this connection is read from. All
@@ -155,16 +159,19 @@ class FileSyncConnection(object):
       size: Optionally override size from len(data).
     """
     if data:
+      if not isinstance(data, bytes):
+        data = data.encode('utf8')
       size = len(data)
 
     if not self._CanAddToSendBuffer(len(data)):
-      self._Flush() 
-    header = struct.pack('<2I', self.id_to_wire[command_id], size)
-    self.send_buffer += header + data.encode('utf8')
+      self._Flush()
+    buf = struct.pack(b'<2I', self.id_to_wire[command_id], size) + data
+    self.send_buffer[self.send_idx:self.send_idx + len(buf)] = buf
+    self.send_idx += len(buf)
 
   def Read(self, expected_ids, read_data=True):
     """Read ADB messages and return FileSync packets."""
-    if self.send_buffer:
+    if self.send_idx:
       self._Flush()
 
     # Read one filesync packet off the recv buffer.
@@ -174,7 +181,7 @@ class FileSyncConnection(object):
     command_id = self.wire_to_id[header[0]]
 
     if command_id not in expected_ids:
-      if command_id == 'FAIL':
+      if command_id == b'FAIL':
         raise usb_exceptions.AdbCommandFailureException('Command failed.')
       raise adb_protocol.InvalidResponseError(
           'Expected one of %s, got %s' % (expected_ids, command_id))
@@ -197,20 +204,20 @@ class FileSyncConnection(object):
 
   def _CanAddToSendBuffer(self, data_len):
     added_len = self.send_header_len + data_len
-    return len(self.send_buffer) + added_len < adb_protocol.MAX_ADB_DATA
+    return self.send_idx + added_len < adb_protocol.MAX_ADB_DATA
 
   def _Flush(self):
     try:
-      self.adb.Write(self.send_buffer)
+      self.adb.Write(self.send_buffer[:self.send_idx])
     except libusb1.USBError as e:
       raise adb_protocol.SendFailedError(
           'Could not send data %s' % self.send_buffer, e)
-    self.send_buffer = ''
+    self.send_idx = 0
 
   def _ReadBuffered(self, size):
     # Ensure recv buffer has enough data.
     while len(self.recv_buffer) < size:
-      _, data = self.adb.ReadUntil('WRTE')
+      _, data = self.adb.ReadUntil(b'WRTE')
       self.recv_buffer += data
 
     result = self.recv_buffer[:size]

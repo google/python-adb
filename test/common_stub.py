@@ -2,11 +2,14 @@
 
 import binascii
 import string
+import sys
 
 PRINTABLE_DATA = set(string.printable) - set(string.whitespace)
 
 
 def _Dotify(data):
+  if sys.version_info.major == 3:
+    data = (chr(char) for char in data)
   return ''.join(char if char in PRINTABLE_DATA else '.' for char in data)
 
 
@@ -20,11 +23,14 @@ class StubUsb(object):
 
   def BulkWrite(self, data, unused_timeout_ms=None):
     expected_data = self.written_data.pop(0)
-    if type(expected_data) != type(data) and isinstance(expected_data, bytes):
-      expected_data = expected_data.decode('utf8')
+    if isinstance(data, bytearray):
+      data = bytes(data)
+    if not isinstance(data, bytes):
+      data = data.encode('utf8')
     if expected_data != data:
-      raise ValueError('Expected %s got %s (%s)' % (
-          _Dotify(expected_data),  binascii.hexlify(data), _Dotify(data)))
+      raise ValueError('Expected %s (%s) got %s (%s)' % (
+          binascii.hexlify(expected_data), _Dotify(expected_data),
+          binascii.hexlify(data), _Dotify(data)))
 
   def BulkRead(self, length,
                timeout_ms=None):  # pylint: disable=unused-argument
@@ -36,9 +42,13 @@ class StubUsb(object):
     return bytearray(data)
 
   def ExpectWrite(self, data):
+    if not isinstance(data, bytes):
+      data = data.encode('utf8')
     self.written_data.append(data)
 
   def ExpectRead(self, data):
+    if not isinstance(data, bytes):
+      data = data.encode('utf8')
     self.read_data.append(data)
 
   def Timeout(self, timeout_ms):

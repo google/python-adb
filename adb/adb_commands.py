@@ -67,7 +67,7 @@ class AdbCommands(object):
     If serial specifies a TCP address:port, then a TCP connection is
     used instead of a USB connection.
     """
-    if serial and ':' in serial:
+    if serial and b':' in serial:
         handle = common.TcpHandle(serial)
     else:
         handle = common.UsbHandle.FindAndOpen(
@@ -98,7 +98,7 @@ class AdbCommands(object):
       banner = socket.gethostname()
     device_state = cls.protocol_handler.Connect(usb, banner=banner, **kwargs)
     # Remove banner and colons after device state (state::banner)
-    device_state = device_state.split(':')[0]
+    device_state = device_state.split(b':')[0]
     return cls(usb, device_state)
 
   @classmethod
@@ -151,7 +151,7 @@ class AdbCommands(object):
       source_file = open(source_file)
 
     connection = self.protocol_handler.Open(
-        self.handle, destination='sync:', timeout_ms=timeout_ms)
+        self.handle, destination=b'sync:', timeout_ms=timeout_ms)
     self.filesync_handler.Push(connection, source_file, device_filename,
                                mtime=int(mtime))
     connection.Close()
@@ -172,7 +172,7 @@ class AdbCommands(object):
     elif isinstance(dest_file, str):
       dest_file = open(dest_file, 'w')
     connection = self.protocol_handler.Open(
-        self.handle, destination='sync:',
+        self.handle, destination=b'sync:',
         timeout_ms=timeout_ms)
     self.filesync_handler.Pull(connection, device_filename, dest_file)
     connection.Close()
@@ -183,7 +183,7 @@ class AdbCommands(object):
 
   def Stat(self, device_filename):
     """Get a file's stat() information."""
-    connection = self.protocol_handler.Open(self.handle, destination='sync:')
+    connection = self.protocol_handler.Open(self.handle, destination=b'sync:')
     mode, size, mtime = self.filesync_handler.Stat(
         connection, device_filename)
     connection.Close()
@@ -195,35 +195,35 @@ class AdbCommands(object):
     Args:
       device_path: Directory to list.
     """
-    connection = self.protocol_handler.Open(self.handle, destination='sync:')
+    connection = self.protocol_handler.Open(self.handle, destination=b'sync:')
     listing = self.filesync_handler.List(connection, device_path)
     connection.Close()
     return listing
 
-  def Reboot(self, destination=''):
+  def Reboot(self, destination=b''):
     """Reboot the device.
 
     Args:
       destination: Specify 'bootloader' for fastboot.
     """
-    self.protocol_handler.Open(self.handle, 'reboot:%s' % destination)
+    self.protocol_handler.Open(self.handle, b'reboot:%s' % destination)
 
   def RebootBootloader(self):
     """Reboot device into fastboot."""
-    self.Reboot('bootloader')
+    self.Reboot(b'bootloader')
 
   def Remount(self):
     """Remount / as read-write."""
-    return self.protocol_handler.Command(self.handle, service='remount')
+    return self.protocol_handler.Command(self.handle, service=b'remount')
 
   def Root(self):
     """Restart adbd as root on the device."""
-    return self.protocol_handler.Command(self.handle, service='root')
+    return self.protocol_handler.Command(self.handle, service=b'root')
 
   def Shell(self, command, timeout_ms=None):
     """Run command on the device, returning the output."""
     return self.protocol_handler.Command(
-        self.handle, service='shell', command=command,
+        self.handle, service=b'shell', command=command,
         timeout_ms=timeout_ms)
 
   def StreamingShell(self, command, timeout_ms=None):
@@ -237,7 +237,7 @@ class AdbCommands(object):
       The responses from the shell command.
     """
     return self.protocol_handler.StreamingCommand(
-        self.handle, service='shell', command=command,
+        self.handle, service=b'shell', command=command,
         timeout_ms=timeout_ms)
 
   def Logcat(self, options, timeout_ms=None):
