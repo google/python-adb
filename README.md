@@ -74,6 +74,18 @@ for i in xrange(10):
   * `fastboot.zip` (optional):
     * python-progressbar (2.3+)
 
+### History
+
+#### 1.0.0
+
+ * Initial version
+
+#### 1.1.0
+
+ * Added TcpHandle (jameyhicks)
+ * Various timing and other changes (alusco)
+
+
 [coverage_img]: https://coveralls.io/repos/github/google/python-adb/badge.svg?branch=master
 [coverage_link]: https://coveralls.io/github/google/python-adb?branch=master
 [build_img]: https://travis-ci.org/google/python-adb.svg?branch=master

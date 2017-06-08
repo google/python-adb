@@ -17,11 +17,11 @@ from setuptools import setup
 setup(
     name = 'adb',
     packages = ['adb'],
-    version = '1.1.0',
+    version = '1.2.0',
     author = 'Fahrzin Hemmati',
     author_email = 'fahhem@gmail.com',
-    maintainer = 'Alex Lusco',
-    maintainer_email = 'alusco@google.com',
+    maintainer = 'Fahrzin Hemmati',
+    maintainer_email = 'fahhem@google.com',
     url = 'https://github.com/google/python-adb',
     description = 'A pure python implementation of the Android ADB and Fastboot protocols',
     long_description = '''
@@ -54,8 +54,8 @@ Android project's ADB.
         'Development Status :: 4 - Beta',
         'License :: OSI Approved :: Apache Software License',
         'Programming Language :: Python',
-        'Programming Language :: Python :: 2', 
-        'Programming Language :: Python :: 3', 
+        'Programming Language :: Python :: 2',
+        'Programming Language :: Python :: 3',
         'Topic :: Software Development :: Testing'
         ]
 )
