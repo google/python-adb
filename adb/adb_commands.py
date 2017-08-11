@@ -95,7 +95,7 @@ class AdbCommands(object):
       An instance of this class if the device connected successfully.
     """
     if not banner:
-      banner = socket.gethostname()
+      banner = socket.gethostname().encode()
     device_state = cls.protocol_handler.Connect(usb, banner=banner, **kwargs)
     # Remove banner and colons after device state (state::banner)
     device_state = device_state.split(b':')[0]
