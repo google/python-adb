@@ -98,7 +98,7 @@ def MakeSubparser(subparsers, parents, method, arguments=None):
   # arguments that default to '' but excludes arguments that default to None.
   offset = len(argspec.args) - len(argspec.defaults or []) - 1
   positional = []
-  for i in xrange(1, len(argspec.args)):
+  for i in range(1, len(argspec.args)):
     if i > offset and argspec.defaults[i-offset-1] is None:
       break
     positional.append(argspec.args[i])
