@@ -168,17 +168,15 @@ class AdbCommands(object):
       The file data if dest_file is not set.
     """
     if not dest_file:
-      dest_file = io.StringIO()
+      dest_file = io.BytesIO()
     elif isinstance(dest_file, str):
-      dest_file = open(dest_file, 'w')
+      dest_file = open(dest_file, 'wb')
     connection = self.protocol_handler.Open(
         self.handle, destination=b'sync:',
         timeout_ms=timeout_ms)
     self.filesync_handler.Pull(connection, device_filename, dest_file)
     connection.Close()
-    # An empty call to cStringIO.StringIO returns an instance of
-    # cStringIO.OutputType.
-    if isinstance(dest_file, io.StringIO):
+    if isinstance(dest_file, io.BytesIO):
       return dest_file.getvalue()
 
   def Stat(self, device_filename):

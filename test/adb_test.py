@@ -198,7 +198,7 @@ class FilesyncAdbTest(BaseAdbTest):
     adb_commands.Push(io.StringIO(filedata), '/data', mtime=mtime)
 
   def testPull(self):
-    filedata = "g'ddayta, govnah"
+    filedata = b"g'ddayta, govnah"
 
     recv = self._MakeWriteSyncPacket(b'RECV', b'/data')
     data = [

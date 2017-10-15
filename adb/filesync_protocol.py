@@ -83,7 +83,7 @@ class FilesyncProtocol(object):
     for cmd_id, _, data in cnxn.ReadUntil((b'DATA',), b'DONE'):
       if cmd_id == b'DONE':
         break
-      dest_file.write(data.decode('utf8'))
+      dest_file.write(data)
 
   @classmethod
   def Push(cls, connection, datafile, filename,
