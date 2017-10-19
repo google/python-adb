@@ -70,3 +70,7 @@ class AdbCommandFailureException(Exception):
 
 class AdbOperationException(Exception):
   """Failed to communicate over adb with device after multiple retries."""
+
+
+class TcpTimeoutException(FormatMessageWithArgumentsException):
+    """TCP connection timed out in the time out given."""

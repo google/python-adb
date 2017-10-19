@@ -20,6 +20,7 @@ import unittest
 
 from adb import adb_commands
 from adb import adb_protocol
+from adb.usb_exceptions import TcpTimeoutException
 import common_stub
 
 
@@ -208,6 +209,39 @@ class FilesyncAdbTest(BaseAdbTest):
     usb = self._ExpectSyncCommand([recv], [b''.join(data)])
     adb_commands = self._Connect(usb)
     self.assertEqual(filedata, adb_commands.Pull('/data'))
+
+
+class TcpTimeoutAdbTest(BaseAdbTest):
+        
+  @classmethod
+  def _ExpectCommand(cls, service, command, *responses):
+    tcp = common_stub.StubTcp()
+    cls._ExpectConnection(tcp)
+    cls._ExpectOpen(tcp, b'%s:%s\0' % (service, command))
+
+    for response in responses:
+      cls._ExpectRead(tcp, b'WRTE', REMOTE_ID, 0, response)
+    cls._ExpectClose(tcp)
+    return tcp
+  
+  def _run_shell(self, cmd, timeout_ms=None):
+    tcp = self._ExpectCommand(b'shell', cmd)
+    adb_commands = self._Connect(tcp)
+    adb_commands.Shell(cmd, timeout_ms=timeout_ms)
+
+  def testConnect(self):
+    tcp = common_stub.StubTcp()
+    self._ExpectConnection(tcp)
+    adb_commands.AdbCommands.Connect(tcp, BANNER)
+
+  def testTcpTimeout(self):
+    timeout_ms = 1  
+    command = b'i_need_a_timeout'
+    self.assertRaises(
+            TcpTimeoutException, 
+            self._run_shell, 
+            command, 
+            timeout_ms=timeout_ms)
 
 if __name__ == '__main__':
   unittest.main()

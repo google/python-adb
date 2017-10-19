@@ -68,7 +68,7 @@ class AdbCommands(object):
     used instead of a USB connection.
     """
     if serial and b':' in serial:
-        handle = common.TcpHandle(serial)
+        handle = common.TcpHandle(serial, timeout_ms=default_timeout_ms)
     else:
         handle = common.UsbHandle.FindAndOpen(
             DeviceIsAvailable, port_path=port_path, serial=serial,
