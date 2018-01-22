@@ -141,6 +141,8 @@ def main():
   common_cli.MakeSubparser(
       subparsers, parents, adb_commands.AdbCommands.Remount)
   common_cli.MakeSubparser(subparsers, parents, adb_commands.AdbCommands.Root)
+  common_cli.MakeSubparser(subparsers, parents, adb_commands.AdbCommands.EnableVerity)
+  common_cli.MakeSubparser(subparsers, parents, adb_commands.AdbCommands.DisableVerity)
   common_cli.MakeSubparser(subparsers, parents, Shell)
 
   if len(sys.argv) == 1:

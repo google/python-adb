@@ -151,6 +151,15 @@ class AdbTest(BaseAdbTest):
     adb_commands = self._Connect(usb)
     adb_commands.Root()
 
+  def testEnableVerity(self):
+    usb = self._ExpectCommand(b'enable-verity', b'', b'')
+    adb_commands = self._Connect(usb)
+    adb_commands.EnableVerity()
+
+  def testDisableVerity(self):
+    usb = self._ExpectCommand(b'disable-verity', b'', b'')
+    adb_commands = self._Connect(usb)
+    adb_commands.DisableVerity()
 
 class FilesyncAdbTest(BaseAdbTest):
 

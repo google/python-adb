@@ -218,6 +218,14 @@ class AdbCommands(object):
     """Restart adbd as root on the device."""
     return self.protocol_handler.Command(self.handle, service=b'root')
 
+  def EnableVerity(self):
+    """Re-enable dm-verity checking on userdebug builds"""
+    return self.protocol_handler.Command(self.handle, service=b'enable-verity')
+
+  def DisableVerity(self):
+    """Disable dm-verity checking on userdebug builds"""
+    return self.protocol_handler.Command(self.handle, service=b'disable-verity')
+
   def Shell(self, command, timeout_ms=None):
     """Run command on the device, returning the output."""
     return self.protocol_handler.Command(
