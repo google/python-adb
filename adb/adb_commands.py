@@ -148,7 +148,7 @@ class AdbCommands(object):
         for f in os.listdir(source_file):
           self.Push(os.path.join(source_file, f), device_filename + '/' + f)
         return
-      source_file = open(source_file)
+      source_file = open(source_file, "rb")
 
     connection = self.protocol_handler.Open(
         self.handle, destination=b'sync:', timeout_ms=timeout_ms)
