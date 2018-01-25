@@ -16,6 +16,7 @@
 Common usb browsing, and usb communication.
 """
 import logging
+import platform
 import socket
 import threading
 import weakref
@@ -113,7 +114,8 @@ class UsbHandle(object):
     handle = self._device.open()
     iface_number = self._setting.getNumber()
     try:
-      if handle.kernelDriverActive(iface_number):
+      if (platform.system() != 'Windows'
+          and handle.kernelDriverActive(iface_number)):
         handle.detachKernelDriver(iface_number)
     except libusb1.USBError as e:
       if e.value == libusb1.LIBUSB_ERROR_NOT_FOUND:
