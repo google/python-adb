@@ -116,6 +116,15 @@ class AdbTest(BaseAdbTest):
     self.assertEqual(b''.join(responses).decode('utf8'),
                      adb_commands.Shell(command))
 
+  def testUninstall(self):
+    package_name = "com.test.package"
+    response = 'Success'
+
+    usb = self._ExpectCommand(b'shell', ('pm uninstall "%s"' % package_name).encode('utf8'), response)
+
+    adb_commands = self._Connect(usb)
+    self.assertEquals(response, adb_commands.Uninstall(package_name))
+
   def testStreamingResponseShell(self):
     command = b'keepin it real big'
     # expect multiple lines

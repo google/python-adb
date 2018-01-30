@@ -109,7 +109,7 @@ class AdbCommands(object):
   def GetState(self):
     return self._device_state
 
-  def Install(self, apk_path, destination_dir='', timeout_ms=None):
+  def Install(self, apk_path, destination_dir='', replace_existing=True, timeout_ms=None):
     """Install an apk to the device.
 
     Doesn't support verifier file, instead allows destination directory to be
@@ -119,6 +119,7 @@ class AdbCommands(object):
       apk_path: Local path to apk to install.
       destination_dir: Optional destination directory. Use /system/app/ for
         persistent applications.
+      replace_existing: whether to replace existing application
       timeout_ms: Expected timeout for pushing and installing.
 
     Returns:
@@ -129,8 +130,30 @@ class AdbCommands(object):
     basename = os.path.basename(apk_path)
     destination_path = destination_dir + basename
     self.Push(apk_path, destination_path, timeout_ms=timeout_ms)
-    return self.Shell('pm install -r "%s"' % destination_path,
-                      timeout_ms=timeout_ms)
+
+    cmd = ['pm install']
+    if replace_existing:
+      cmd.append('-r')
+    cmd.append('"%s"' % destination_path)
+
+    return self.Shell(' '.join(cmd), timeout_ms=timeout_ms)
+
+  def Uninstall(self, package_name, keep_data=False, timeout_ms=None):
+    """Removes a package from the device.
+
+    Args:
+      package_name: Package name of target package.
+      keep_data: whether to keep the data and cache directories
+      timeout_ms: Expected timeout for pushing and installing.
+
+    Returns:
+      The pm uninstall output.
+    """
+    cmd = ['pm uninstall']
+    if keep_data:
+      cmd.append('-k')
+    cmd.append('"%s"' % package_name)
+    return self.Shell(' '.join(cmd), timeout_ms=timeout_ms)
 
   def Push(self, source_file, device_filename, mtime='0', timeout_ms=None):
     """Push a file or directory to the device.

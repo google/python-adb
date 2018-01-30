@@ -123,6 +123,7 @@ def main():
 
   common_cli.MakeSubparser(
       subparsers, parents, adb_commands.AdbCommands.Install)
+  common_cli.MakeSubparser(subparsers, parents, adb_commands.AdbCommands.Uninstall)
   common_cli.MakeSubparser(subparsers, parents, List)
   common_cli.MakeSubparser(subparsers, parents, Logcat)
   common_cli.MakeSubparser(
