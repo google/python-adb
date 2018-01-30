@@ -165,6 +165,7 @@ class AdbCommands(object):
       mtime: Optional, modification time to set on the file.
       timeout_ms: Expected timeout for any part of the push.
     """
+    should_close = False
     if isinstance(source_file, str):
       if os.path.isdir(source_file):
         self.Shell("mkdir " + device_filename)
@@ -172,11 +173,14 @@ class AdbCommands(object):
           self.Push(os.path.join(source_file, f), device_filename + '/' + f)
         return
       source_file = open(source_file, "rb")
+      should_close = True
 
     connection = self.protocol_handler.Open(
         self.handle, destination=b'sync:', timeout_ms=timeout_ms)
     self.filesync_handler.Push(connection, source_file, device_filename,
                                mtime=int(mtime))
+    if should_close:
+      source_file.close()
     connection.Close()
 
   def Pull(self, device_filename, dest_file='', timeout_ms=None):
