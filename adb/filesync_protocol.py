@@ -18,6 +18,7 @@ host side.
 """
 
 import collections
+import os
 import stat
 import struct
 import time
@@ -76,18 +77,36 @@ class FilesyncProtocol(object):
     return files
 
   @classmethod
-  def Pull(cls, connection, filename, dest_file):
+  def Pull(cls, connection, filename, dest_file, progress_callback):
     """Pull a file from the device into the file-like dest_file."""
+    if progress_callback:
+      total_bytes = cls.Stat(connection, filename)[1]
+      progress = cls._HandleProgress(lambda current: progress_callback(filename, current, total_bytes))
+      next(progress)
+
     cnxn = FileSyncConnection(connection, b'<2I')
     cnxn.Send(b'RECV', filename)
     for cmd_id, _, data in cnxn.ReadUntil((b'DATA',), b'DONE'):
       if cmd_id == b'DONE':
         break
       dest_file.write(data)
+      if progress_callback:
+        progress.send(len(data))
+
+  @classmethod
+  def _HandleProgress(cls, progress_callback):
+    """Calls the callback with the current progress and total ."""
+    current = 0
+    while True:
+      current += yield
+      try:
+        progress_callback(current)
+      except Exception:  # pylint: disable=broad-except
+        continue
 
   @classmethod
   def Push(cls, connection, datafile, filename,
-           st_mode=DEFAULT_PUSH_MODE, mtime=0):
+           st_mode=DEFAULT_PUSH_MODE, mtime=0, progress_callback=None):
     """Push a file-like object to the device.
 
     Args:
@@ -96,6 +115,7 @@ class FilesyncProtocol(object):
       filename: Filename to push to
       st_mode: stat mode for filename
       mtime: modification time
+      progress_callback: callback method that accepts filename, bytes_written and total_bytes,
 
     Raises:
       PushFailedError: Raised on push failure.
@@ -107,11 +127,20 @@ class FilesyncProtocol(object):
     cnxn = FileSyncConnection(connection, b'<2I')
     cnxn.Send(b'SEND', fileinfo)
 
+    if progress_callback:
+      total_bytes = os.fstat(datafile.fileno()).st_size if isinstance(datafile, file) else -1
+      progress = cls._HandleProgress(lambda current: progress_callback(filename, current, total_bytes))
+      next(progress)
+
     while True:
       data = datafile.read(MAX_PUSH_DATA)
-      if not data:
+      if data:
+        cnxn.Send(b'DATA', data)
+
+        if progress_callback:
+          progress.send(len(data))
+      else:
         break
-      cnxn.Send(b'DATA', data)
 
     if mtime == 0:
       mtime = int(time.time())
