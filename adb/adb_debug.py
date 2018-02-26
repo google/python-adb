@@ -84,7 +84,8 @@ def List(self, device_path):
 
 @functools.wraps(adb_commands.AdbCommands.Logcat)
 def Logcat(self, *options):
-  return adb_commands.AdbCommands.Logcat(self, ' '.join(options))
+  return adb_commands.AdbCommands.Logcat(
+      self, ' '.join(options), timeout_ms=0)
 
 
 def Shell(self, *command):
