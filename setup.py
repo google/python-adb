@@ -57,5 +57,12 @@ Android project's ADB.
         'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 3',
         'Topic :: Software Development :: Testing'
-        ]
+    ],
+    entry_points={
+        "console_scripts": [
+            "adb = adb.adb_debug:main",
+            "fastboot = adb.fastboot_debug:main",
+        ],
+    }
+
 )
