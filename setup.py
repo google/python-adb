@@ -80,8 +80,8 @@ Android project's ADB.
     ],
     entry_points={
         "console_scripts": [
-            "adb = adb.adb_debug:main",
-            "fastboot = adb.fastboot_debug:main",
+            "pyadb = adb.adb_debug:main",
+            "pyfastboot = adb.fastboot_debug:main",
         ],
     }
 
