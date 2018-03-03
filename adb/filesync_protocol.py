@@ -31,7 +31,7 @@ from adb import usb_exceptions
 # Default mode for pushed files.
 DEFAULT_PUSH_MODE = stat.S_IFREG | stat.S_IRWXU | stat.S_IRWXG
 # Maximum size of a filesync DATA packet.
-MAX_PUSH_DATA = 2*1024
+MAX_PUSH_DATA = 2 * 1024
 
 
 class InvalidChecksumError(Exception):
@@ -95,7 +95,12 @@ class FilesyncProtocol(object):
 
   @classmethod
   def _HandleProgress(cls, progress_callback):
-    """Calls the callback with the current progress and total ."""
+    """Calls the callback with the current progress and total bytes written/received.
+
+    Args:
+      progress_callback: callback method that accepts filename, bytes_written and total_bytes,
+                 total_bytes will be -1 for file-like objects
+    """
     current = 0
     while True:
       current += yield
@@ -115,14 +120,13 @@ class FilesyncProtocol(object):
       filename: Filename to push to
       st_mode: stat mode for filename
       mtime: modification time
-      progress_callback: callback method that accepts filename, bytes_written and total_bytes,
+      progress_callback: callback method that accepts filename, bytes_written and total_bytes
 
     Raises:
       PushFailedError: Raised on push failure.
     """
-    if not isinstance(filename, bytes):
-      filename = filename.encode('utf8')
-    fileinfo = b'%s,%d' % (filename, st_mode)
+
+    fileinfo = ('{},{}'.format(filename, int(st_mode))).encode('utf-8')
 
     cnxn = FileSyncConnection(connection, b'<2I')
     cnxn.Send(b'SEND', fileinfo)
@@ -211,7 +215,10 @@ class FileSyncConnection(object):
 
     if command_id not in expected_ids:
       if command_id == b'FAIL':
-        raise usb_exceptions.AdbCommandFailureException('Command failed.')
+        reason = ''
+        if self.recv_buffer:
+          reason = self.recv_buffer.decode('utf-8', errors='ignore')
+        raise usb_exceptions.AdbCommandFailureException('Command failed: {}'.format(reason))
       raise adb_protocol.InvalidResponseError(
           'Expected one of %s, got %s' % (expected_ids, command_id))
 
@@ -252,4 +259,3 @@ class FileSyncConnection(object):
     result = self.recv_buffer[:size]
     self.recv_buffer = self.recv_buffer[size:]
     return result
-

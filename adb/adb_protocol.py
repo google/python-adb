@@ -19,9 +19,8 @@ host side.
 
 import struct
 import time
-
+from io import BytesIO
 from adb import usb_exceptions
-
 
 # Maximum amount of data in an ADB packet.
 MAX_ADB_DATA = 4096
@@ -33,6 +32,23 @@ AUTH_TOKEN = 1
 AUTH_SIGNATURE = 2
 AUTH_RSAPUBLICKEY = 3
 
+
+def find_backspace_runs(stdout_bytes, start_pos):
+
+  first_backspace_pos = stdout_bytes[start_pos:].find(b'\x08')
+  if first_backspace_pos == -1:
+    return -1, 0
+
+  end_backspace_pos = (start_pos + first_backspace_pos) + 1
+  while True:
+    if chr(stdout_bytes[end_backspace_pos]) == '\b':
+      end_backspace_pos += 1
+    else:
+      break
+
+  num_backspaces = end_backspace_pos - (start_pos + first_backspace_pos)
+
+  return (start_pos + first_backspace_pos), num_backspaces
 
 class InvalidCommandError(Exception):
   """Got an invalid command over USB."""
@@ -241,6 +257,8 @@ class AdbMessage(object):
       data = bytearray()
       while data_length > 0:
           temp = usb.BulkRead(data_length, timeout_ms)
+          if len(temp) != data_length:
+            print("Data_length {} does not match actual number of bytes read: {}".format(data_length, len(temp)))
           data += temp
 
           data_length -= len(temp)
@@ -298,7 +316,8 @@ class AdbMessage(object):
           raise InvalidResponseError(
               'Unknown AUTH response: %s %s %s' % (arg0, arg1, banner))
 
-        signed_token = rsa_key.Sign(str(banner))
+        # Do not mangle the banner property here by converting it to a string
+        signed_token = rsa_key.Sign(banner)
         msg = cls(
             command=b'AUTH', arg0=AUTH_SIGNATURE, arg1=0, data=signed_token)
         msg.Send(usb)
@@ -349,7 +368,7 @@ class AdbMessage(object):
                                                  timeout_ms=timeout_ms)
     if local_id != their_local_id:
       raise InvalidResponseError(
-          'Expected the local_id to be %s, got %s' % (local_id, their_local_id))
+          'Expected the local_id to be {}, got {}'.format(local_id, their_local_id))
     if cmd == b'CLSE':
       # Some devices seem to be sending CLSE once more after a request, this *should* handle it
       cmd, remote_id, their_local_id, _ = cls.Read(usb, [b'CLSE', b'OKAY'],
@@ -358,7 +377,7 @@ class AdbMessage(object):
       if cmd == b'CLSE':
         return None
     if cmd != b'OKAY':
-      raise InvalidCommandError('Expected a ready response, got %s' % cmd,
+      raise InvalidCommandError('Expected a ready response, got {}'.format(cmd),
                                 cmd, (remote_id, their_local_id))
     return _AdbConnection(usb, local_id, remote_id, timeout_ms)
 
@@ -413,3 +432,128 @@ class AdbMessage(object):
         timeout_ms=timeout_ms)
     for data in connection.ReadUntilClose():
       yield data.decode('utf8')
+
+  @classmethod
+  def InteractiveShellCommand(cls, conn, cmd=None, strip_cmd=True, delim=None, strip_delim=True, clean_stdout=True):
+    """Retrieves stdout of the current InteractiveShell and sends a shell command if provided
+    TODO: Should we turn this into a yield based function so we can stream all output?
+
+    Args:
+      conn: Instance of AdbConnection
+      cmd: Optional. Command to run on the target.
+      strip_cmd: Optional (default True). Strip command name from stdout.
+      delim: Optional. Delimiter to look for in the output to know when to stop expecting more output
+      (usually the shell prompt)
+      strip_delim: Optional (default True): Strip the provided delimiter from the output
+      clean_stdout: Cleanup the stdout stream of any backspaces and the characters that were deleted by the backspace
+    Returns:
+      The stdout from the shell command.
+    """
+
+    if isinstance(delim, str):
+      delimiter = delim.encode('utf-8')
+
+    # Delimiter may be shell@hammerhead:/ $
+    # The user or directory could change, making the delimiter somthing like root@hammerhead:/data/local/tmp $
+    # Handle a partial delimiter to search on and clean up
+    if delim:
+      user_pos = delim.find(b'@')
+      dir_pos = delim.rfind(b':/')
+      if user_pos != -1 and dir_pos != -1:
+        partial_delim = delim[user_pos:dir_pos+1] # e.g. @hammerhead:
+      else:
+        partial_delim = delim
+    else:
+      partial_delim = None
+
+    stdout = ''
+    stdout_stream = BytesIO()
+    original_cmd = ''
+
+    try:
+
+      if cmd:
+        original_cmd = str(cmd)
+        cmd += '\r'  # Required. Send a carriage return right after the cmd
+        cmd = cmd.encode('utf8')
+
+        # Send the cmd raw
+        bytes_written = conn.Write(cmd)
+
+        if delim:
+          # Expect multiple WRTE cmds until the delim (usually terminal prompt) is detected
+
+          data = b''
+          while partial_delim not in data:
+
+            cmd, data = conn.ReadUntil(b'WRTE')
+            stdout_stream.write(data)
+
+        else:
+          # Otherwise, expect only a single WRTE
+          cmd, data = conn.ReadUntil(b'WRTE')
+
+          # WRTE cmd from device will follow with stdout data
+          stdout_stream.write(data)
+
+      else:
+
+        # No cmd provided means we should just expect a single line from the terminal. Use this sparingly
+        cmd, data = conn.ReadUntil(b'WRTE')
+        if cmd == b'WRTE':
+            # WRTE cmd from device will follow with stdout data
+            stdout_stream.write(data)
+        else:
+            print("Unhandled cmd: {}".format(cmd))
+
+      cleaned_stdout_stream = BytesIO()
+      if clean_stdout:
+        stdout_bytes = stdout_stream.getvalue()
+
+        bsruns = {} # Backspace runs tracking
+        next_start_pos = 0
+        last_run_pos, last_run_len = find_backspace_runs(stdout_bytes, next_start_pos)
+
+        if last_run_pos != -1 and last_run_len != 0:
+          bsruns.update({last_run_pos: last_run_len})
+          cleaned_stdout_stream.write(stdout_bytes[next_start_pos:(last_run_pos-last_run_len)])
+          next_start_pos += last_run_pos + last_run_len
+
+        while last_run_pos != -1:
+          last_run_pos, last_run_len = find_backspace_runs(stdout_bytes[next_start_pos:], next_start_pos)
+
+          if last_run_pos != -1:
+            bsruns.update({last_run_pos: last_run_len})
+            cleaned_stdout_stream.write(stdout_bytes[next_start_pos:(last_run_pos - last_run_len)])
+            next_start_pos += last_run_pos + last_run_len
+
+        cleaned_stdout_stream.write(stdout_bytes[next_start_pos:])
+
+      else:
+        cleaned_stdout_stream.write(stdout_stream.getvalue())
+
+      stdout = cleaned_stdout_stream.getvalue()
+
+      # Strip original cmd that will come back in stdout
+      if original_cmd and strip_cmd:
+        findstr = original_cmd.encode('utf-8') + b'\r\r\n'
+        pos = stdout.find(findstr)
+        while pos >= 0:
+            stdout = stdout.replace(findstr, b'')
+            pos = stdout.find(findstr)
+
+        if b'\r\r\n' in stdout:
+          stdout = stdout.split(b'\r\r\n')[1]
+
+      # Strip delim if requested
+      # TODO: Handling stripping partial delims here - not a deal breaker the way we're handling it now
+      if delim and strip_delim:
+
+        stdout = stdout.replace(delim, b'')
+
+      stdout = stdout.rstrip()
+
+    except Exception as e:
+        print("InteractiveShell exception (most likely timeout): {}".format(e))
+
+    return stdout

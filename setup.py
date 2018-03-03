@@ -14,6 +14,23 @@
 
 from setuptools import setup
 
+# Figure out if the system already has a supported Crypto library
+rsa_signer_library = 'M2Crypto>=0.21.1,<=0.26.4'
+try:
+  import rsa
+
+  rsa_signer_library = 'python-rsa'
+except ImportError:
+    try:
+        from Crypto.Hash import SHA256
+        from Crypto.PublicKey import RSA
+        from Crypto.Signature import pkcs1_15
+
+        rsa_signer_library = 'pycryptodome'
+    except ImportError:
+        pass
+
+
 setup(
     name = 'adb',
     packages = ['adb'],
@@ -43,7 +60,10 @@ Android project's ADB.
 
     keywords = ['android', 'adb', 'fastboot'],
 
-    install_requires = ['libusb1>=1.0.16', 'M2Crypto>=0.21.1,<=0.26.4'],
+    install_requires = [
+        'libusb1>=1.0.16',
+        rsa_signer_library
+    ],
 
     extra_requires = {
         'fastboot': 'progressbar>=2.3'

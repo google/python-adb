@@ -34,7 +34,12 @@ except ImportError:
     from adb import sign_pythonrsa
     rsa_signer = sign_pythonrsa.PythonRSASigner.FromRSAKeyPath
   except ImportError:
-    rsa_signer = None
+    try:
+      from adb import sign_pycryptodome
+
+      rsa_signer = sign_pycryptodome.PycryptodomeAuthSigner
+    except ImportError:
+      rsa_signer = None
 
 
 def Devices(args):
@@ -53,13 +58,13 @@ def Devices(args):
   return 0
 
 
-def List(self, device_path):
+def List(device, device_path):
   """Prints a directory listing.
 
   Args:
     device_path: Directory to list.
   """
-  files = adb_commands.AdbCommands.List(self, device_path)
+  files = device.List(device_path)
   files.sort(key=lambda x: x.filename)
   maxname = max(len(f.filename) for f in files)
   maxsize = max(len(str(f.size)) for f in files)
@@ -83,18 +88,40 @@ def List(self, device_path):
 
 
 @functools.wraps(adb_commands.AdbCommands.Logcat)
-def Logcat(self, *options):
-  return adb_commands.AdbCommands.Logcat(
+def Logcat(device, *options):
+  return device.Logcat(
       self, ' '.join(options), timeout_ms=0)
 
 
-def Shell(self, *command):
+def Shell(device, *command):
   """Runs a command on the device and prints the stdout.
 
   Args:
     command: Command to run on the target.
   """
-  return adb_commands.AdbCommands.StreamingShell(self, ' '.join(command))
+  if command:
+    return device.StreamingShell(' '.join(command))
+  else:
+    # Retrieve the initial terminal prompt to use as a delimiter for future reads
+    terminal_prompt = device.InteractiveShell()
+    print(terminal_prompt.decode('utf-8'))
+
+    # Accept user input in a loop and write that into the interactive shells stdin, then print output
+    while True:
+      cmd = input('> ')
+      if not cmd:
+        continue
+      elif cmd == 'exit':
+        break
+      else:
+        stdout = device.InteractiveShell(cmd, strip_cmd=True, delim=terminal_prompt, strip_delim=True)
+        if stdout:
+          if isinstance(stdout, bytes):
+            stdout = stdout.decode('utf-8')
+            print(stdout)
+
+
+    device.Close()
 
 
 def main():
@@ -159,7 +186,8 @@ def main():
     if os.path.isfile(default):
       args.rsa_key_path = [default]
   if args.rsa_key_path and not rsa_signer:
-    parser.error('Please install either M2Crypto or python-rsa')
+    parser.error('Please install either M2Crypto, python-rsa, or PycryptoDome')
+
   # Hacks so that the generated doc is nicer.
   if args.command_name == 'devices':
     return Devices(args)
@@ -173,8 +201,8 @@ def main():
 
   return common_cli.StartCli(
       args,
-      adb_commands.AdbCommands.ConnectDevice,
-      auth_timeout_ms=args.auth_timeout_s * 1000,
+      adb_commands.AdbCommands,
+      auth_timeout_ms=int(args.auth_timeout_s * 1000),
       rsa_keys=[rsa_signer(path) for path in args.rsa_key_path])
 
 

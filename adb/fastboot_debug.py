@@ -115,7 +115,9 @@ def main():
     kwargs['progress_callback'] = SetProgress
 
   return common_cli.StartCli(
-      args, fastboot.FastbootCommands.ConnectDevice, chunk_kb=args.chunk_kb,
+      args,
+      fastboot.FastbootCommands,
+      chunk_kb=args.chunk_kb,
       extra=kwargs)
 
 

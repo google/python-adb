@@ -206,30 +206,62 @@ class FastbootProtocol(object):
 class FastbootCommands(object):
   """Encapsulates the fastboot commands."""
 
-  def __init__(self, usb, chunk_kb=1024):
+  def __init__(self):
     """Constructs a FastbootCommands instance.
 
     Args:
       usb: UsbHandle instance.
     """
-    self._usb = usb
-    self._protocol = FastbootProtocol(usb, chunk_kb)
+    self.__reset()
+
+  def __reset(self):
+    self._handle = None
+    self._protocol = None
 
   @property
   def usb_handle(self):
-    return self._usb
+    return self._handle
 
   def Close(self):
-    self._usb.Close()
+    self._handle.Close()
 
-  @classmethod
-  def ConnectDevice(
-      cls, port_path=None, serial=None, default_timeout_ms=None, chunk_kb=1024):
-    """Convenience function to get an adb device from usb path or serial."""
-    usb = common.UsbHandle.FindAndOpen(
-        DeviceIsAvailable, port_path=port_path, serial=serial,
-        timeout_ms=default_timeout_ms)
-    return cls(usb, chunk_kb=chunk_kb)
+  def ConnectDevice(self, port_path=None, serial=None, default_timeout_ms=None, chunk_kb=1024, **kwargs):
+    """Convenience function to get an adb device from usb path or serial.
+
+    Args:
+      port_path: The filename of usb port to use.
+      serial: The serial number of the device to use.
+      default_timeout_ms: The default timeout in milliseconds to use.
+      chunk_kb: Amount of data, in kilobytes, to break fastboot packets up into
+      kwargs: handle: Device handle to use (instance of common.TcpHandle or common.UsbHandle)
+              banner: Connection banner to pass to the remote device
+              rsa_keys: List of AuthSigner subclass instances to be used for
+                  authentication. The device can either accept one of these via the Sign
+                  method, or we will send the result of GetPublicKey from the first one
+                  if the device doesn't accept any of them.
+              auth_timeout_ms: Timeout to wait for when sending a new public key. This
+                  is only relevant when we send a new public key. The device shows a
+                  dialog and this timeout is how long to wait for that dialog. If used
+                  in automation, this should be low to catch such a case as a failure
+                  quickly; while in interactive settings it should be high to allow
+                  users to accept the dialog. We default to automation here, so it's low
+                  by default.
+
+    If serial specifies a TCP address:port, then a TCP connection is
+    used instead of a USB connection.
+    """
+
+    if 'handle' in kwargs:
+      self._handle = kwargs['handle']
+
+    else:
+      self._handle = common.UsbHandle.FindAndOpen(
+          DeviceIsAvailable, port_path=port_path, serial=serial,
+          timeout_ms=default_timeout_ms)
+
+    self._protocol = FastbootProtocol(self._handle, chunk_kb)
+
+    return self
 
   @classmethod
   def Devices(cls):
@@ -285,15 +317,16 @@ class FastbootCommands(object):
       source_len = os.stat(source_file).st_size
       source_file = open(source_file)
 
-    if source_len == 0:
-      # Fall back to storing it all in memory :(
-      data = source_file.read()
-      source_file = io.BytesIO(data.encode('utf8'))
-      source_len = len(data)
+    with source_file:
+      if source_len == 0:
+        # Fall back to storing it all in memory :(
+        data = source_file.read()
+        source_file = io.BytesIO(data.encode('utf8'))
+        source_len = len(data)
 
-    self._protocol.SendCommand(b'download', b'%08x' % source_len)
-    return self._protocol.HandleDataSending(
-        source_file, source_len, info_cb, progress_callback=progress_callback)
+      self._protocol.SendCommand(b'download', b'%08x' % source_len)
+      return self._protocol.HandleDataSending(
+          source_file, source_len, info_cb, progress_callback=progress_callback)
 
   def Flash(self, partition, timeout_ms=0, info_cb=DEFAULT_MESSAGE_CALLBACK):
     """Flashes the last downloaded file to the given partition.

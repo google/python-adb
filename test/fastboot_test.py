@@ -61,9 +61,10 @@ class FastbootTest(unittest.TestCase):
     data = io.StringIO(raw)
 
     self.ExpectDownload([raw])
-    commands = fastboot.FastbootCommands(self.usb)
+    dev = fastboot.FastbootCommands()
+    dev.ConnectDevice(handle=self.usb)
 
-    response = commands.Download(data)
+    response = dev.Download(data)
     self.assertEqual(b'Result', response)
 
   def testDownloadFail(self):
@@ -71,26 +72,28 @@ class FastbootTest(unittest.TestCase):
     data = io.StringIO(raw)
 
     self.ExpectDownload([raw], succeed=False)
-    commands = fastboot.FastbootCommands(self.usb)
+    dev = fastboot.FastbootCommands()
+    dev.ConnectDevice(handle=self.usb)
     with self.assertRaises(fastboot.FastbootRemoteFailure):
-      commands.Download(data)
+      dev.Download(data)
 
     data = io.StringIO(raw)
     self.ExpectDownload([raw], accept_data=False)
     with self.assertRaises(fastboot.FastbootTransferError):
-      commands.Download(data)
+      dev.Download(data)
 
   def testFlash(self):
     partition = b'yarr'
 
     self.ExpectFlash(partition)
-    commands = fastboot.FastbootCommands(self.usb)
+    dev = fastboot.FastbootCommands()
+    dev.ConnectDevice(handle=self.usb)
 
     output = io.BytesIO()
     def InfoCb(message):
       if message.header == b'INFO':
         output.write(message.message)
-    response = commands.Flash(partition, info_cb=InfoCb)
+    response = dev.Flash(partition, info_cb=InfoCb)
     self.assertEqual(b'Done', response)
     self.assertEqual(b'Random info from the bootloader', output.getvalue())
 
@@ -98,10 +101,11 @@ class FastbootTest(unittest.TestCase):
     partition = b'matey'
 
     self.ExpectFlash(partition, succeed=False)
-    commands = fastboot.FastbootCommands(self.usb)
+    dev = fastboot.FastbootCommands()
+    dev.ConnectDevice(handle=self.usb)
 
     with self.assertRaises(fastboot.FastbootRemoteFailure):
-      commands.Flash(partition)
+      dev.Flash(partition)
 
   def testFlashFromFile(self):
     partition = b'somewhere'
@@ -122,51 +126,54 @@ class FastbootTest(unittest.TestCase):
 
     cb = lambda progress, total: progresses.append((progress, total))
 
-    commands = fastboot.FastbootCommands(self.usb)
-    commands.FlashFromFile(
+    dev = fastboot.FastbootCommands()
+    dev.ConnectDevice(handle=self.usb)
+    dev.FlashFromFile(
         partition, tmp.name, progress_callback=cb)
     self.assertEqual(len(pieces), len(progresses))
     os.remove(tmp.name)
 
   def testSimplerCommands(self):
-    commands = fastboot.FastbootCommands(self.usb)
+    dev = fastboot.FastbootCommands()
+    dev.ConnectDevice(handle=self.usb)
 
     self.usb.ExpectWrite(b'erase:vector')
     self.usb.ExpectRead(b'OKAY')
-    commands.Erase('vector')
+    dev.Erase('vector')
 
     self.usb.ExpectWrite(b'getvar:variable')
     self.usb.ExpectRead(b'OKAYstuff')
-    self.assertEqual(b'stuff', commands.Getvar('variable'))
+    self.assertEqual(b'stuff', dev.Getvar('variable'))
 
     self.usb.ExpectWrite(b'continue')
     self.usb.ExpectRead(b'OKAY')
-    commands.Continue()
+    dev.Continue()
 
     self.usb.ExpectWrite(b'reboot')
     self.usb.ExpectRead(b'OKAY')
-    commands.Reboot()
+    dev.Reboot()
 
     self.usb.ExpectWrite(b'reboot-bootloader')
     self.usb.ExpectRead(b'OKAY')
-    commands.RebootBootloader()
+    dev.RebootBootloader()
 
     self.usb.ExpectWrite(b'oem a little somethin')
     self.usb.ExpectRead(b'OKAYsomethin')
-    self.assertEqual(b'somethin', commands.Oem('a little somethin'))
+    self.assertEqual(b'somethin', dev.Oem('a little somethin'))
 
   def testVariousFailures(self):
-    commands = fastboot.FastbootCommands(self.usb)
+    dev = fastboot.FastbootCommands()
+    dev.ConnectDevice(handle=self.usb)
 
     self.usb.ExpectWrite(b'continue')
     self.usb.ExpectRead(b'BLEH')
     with self.assertRaises(fastboot.FastbootInvalidResponse):
-      commands.Continue()
+      dev.Continue()
 
     self.usb.ExpectWrite(b'continue')
     self.usb.ExpectRead(b'DATA000000')
     with self.assertRaises(fastboot.FastbootStateMismatch):
-      commands.Continue()
+      dev.Continue()
 
 
 if __name__ == '__main__':

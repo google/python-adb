@@ -27,7 +27,7 @@ import usb1
 
 from adb import usb_exceptions
 
-DEFAULT_TIMEOUT_MS = 1000
+DEFAULT_TIMEOUT_MS = 10000
 
 _LOG = logging.getLogger('android_usb')
 
@@ -76,7 +76,8 @@ class UsbHandle(object):
     self._handle = None
 
     self._usb_info = usb_info or ''
-    self._timeout_ms = timeout_ms or DEFAULT_TIMEOUT_MS
+    self._timeout_ms = timeout_ms if timeout_ms else DEFAULT_TIMEOUT_MS
+    self._max_read_packet_len = 0
 
   @property
   def usb_info(self):
@@ -192,10 +193,14 @@ class UsbHandle(object):
           'Could not receive data from %s (timeout %sms)' % (
               self.usb_info, self.Timeout(timeout_ms)), e)
 
+  def BulkReadAsync(self, length, timeout_ms=None):
+    # See: https://pypi.python.org/pypi/libusb1 "Asynchronous I/O" section
+    return
+
   @classmethod
   def PortPathMatcher(cls, port_path):
     """Returns a device matcher for the given port path."""
-    if isinstance(port_path, basestring):
+    if isinstance(port_path, str):
       # Convert from sysfs path to port_path.
       port_path = [int(part) for part in SYSFS_PORT_SPLIT_RE.split(port_path)]
     return lambda device: device.port_path == port_path
@@ -284,8 +289,7 @@ class TcpHandle(object):
      Provides same interface as UsbHandle. """
 
   def __init__(self, serial, timeout_ms=None):
-    """Initialize the Tcp Handle.
-
+    """Initialize the TCP Handle.
     Arguments:
       serial: Android device serial of the form host or host:port.
 
@@ -314,7 +318,7 @@ class TcpHandle(object):
       return self._connection.send(data)
     msg = 'Sending data to {} timed out after {}s. No data was sent.'.format(
         self.serial_number, t)
-    raise usb_exceptions.TcpTimeoutException(msg) 
+    raise usb_exceptions.TcpTimeoutException(msg)
 
   def BulkRead(self, numbytes, timeout=None):
     t = self.TimeoutSeconds(timeout)
@@ -322,7 +326,7 @@ class TcpHandle(object):
     if readable:
       return self._connection.recv(numbytes)
     msg = 'Reading from {} timed out (Timeout {}s)'.format(
-        self._serial_number,t)
+        self._serial_number, t)
     raise usb_exceptions.TcpTimeoutException(msg)
 
   def Timeout(self, timeout_ms):

@@ -14,7 +14,7 @@
 # limitations under the License.
 """Tests for adb."""
 
-import io
+from io import BytesIO
 import struct
 import unittest
 
@@ -94,15 +94,17 @@ class AdbTest(BaseAdbTest):
     usb = common_stub.StubUsb()
     self._ExpectConnection(usb)
 
-    adb_commands.AdbCommands.Connect(usb, BANNER)
+    dev = adb_commands.AdbCommands()
+    dev.ConnectDevice(handle=usb, banner=BANNER)
 
   def testSmallResponseShell(self):
     command = b'keepin it real'
     response = 'word.'
     usb = self._ExpectCommand(b'shell', command, response)
 
-    adb_commands = self._Connect(usb)
-    self.assertEqual(response, adb_commands.Shell(command))
+    dev = adb_commands.AdbCommands()
+    dev.ConnectDevice(handle=usb, banner=BANNER)
+    self.assertEqual(response, dev.Shell(command))
 
   def testBigResponseShell(self):
     command = b'keepin it real big'
@@ -112,9 +114,10 @@ class AdbTest(BaseAdbTest):
 
     usb = self._ExpectCommand(b'shell', command, *responses)
 
-    adb_commands = self._Connect(usb)
+    dev = adb_commands.AdbCommands()
+    dev.ConnectDevice(handle=usb, banner=BANNER)
     self.assertEqual(b''.join(responses).decode('utf8'),
-                     adb_commands.Shell(command))
+                     dev.Shell(command))
 
   def testUninstall(self):
     package_name = "com.test.package"
@@ -122,8 +125,9 @@ class AdbTest(BaseAdbTest):
 
     usb = self._ExpectCommand(b'shell', ('pm uninstall "%s"' % package_name).encode('utf8'), response)
 
-    adb_commands = self._Connect(usb)
-    self.assertEquals(response, adb_commands.Uninstall(package_name))
+    dev = adb_commands.AdbCommands()
+    dev.ConnectDevice(handle=usb, banner=BANNER)
+    self.assertEqual(response, dev.Uninstall(package_name))
 
   def testStreamingResponseShell(self):
     command = b'keepin it real big'
@@ -133,42 +137,49 @@ class AdbTest(BaseAdbTest):
 
     usb = self._ExpectCommand(b'shell', command, *responses)
 
-    adb_commands = self._Connect(usb)
+    dev = adb_commands.AdbCommands()
+    dev.ConnectDevice(handle=usb, banner=BANNER)
     response_count = 0
-    for (expected,actual) in zip(responses, adb_commands.StreamingShell(command)):
+    for (expected,actual) in zip(responses, dev.StreamingShell(command)):
       self.assertEqual(expected, actual)
       response_count = response_count + 1
     self.assertEqual(len(responses), response_count)
 
   def testReboot(self):
     usb = self._ExpectCommand(b'reboot', b'', b'')
-    adb_commands = self._Connect(usb)
-    adb_commands.Reboot()
+    dev = adb_commands.AdbCommands()
+    dev.ConnectDevice(handle=usb, banner=BANNER)
+    dev.Reboot()
 
   def testRebootBootloader(self):
     usb = self._ExpectCommand(b'reboot', b'bootloader', b'')
-    adb_commands = self._Connect(usb)
-    adb_commands.RebootBootloader()
+    dev = adb_commands.AdbCommands()
+    dev.ConnectDevice(handle=usb, banner=BANNER)
+    dev.RebootBootloader()
 
   def testRemount(self):
     usb = self._ExpectCommand(b'remount', b'', b'')
-    adb_commands = self._Connect(usb)
-    adb_commands.Remount()
+    dev = adb_commands.AdbCommands()
+    dev.ConnectDevice(handle=usb, banner=BANNER)
+    dev.Remount()
 
   def testRoot(self):
     usb = self._ExpectCommand(b'root', b'', b'')
-    adb_commands = self._Connect(usb)
-    adb_commands.Root()
+    dev = adb_commands.AdbCommands()
+    dev.ConnectDevice(handle=usb, banner=BANNER)
+    dev.Root()
 
   def testEnableVerity(self):
     usb = self._ExpectCommand(b'enable-verity', b'', b'')
-    adb_commands = self._Connect(usb)
-    adb_commands.EnableVerity()
+    dev = adb_commands.AdbCommands()
+    dev.ConnectDevice(handle=usb, banner=BANNER)
+    dev.EnableVerity()
 
   def testDisableVerity(self):
     usb = self._ExpectCommand(b'disable-verity', b'', b'')
-    adb_commands = self._Connect(usb)
-    adb_commands.DisableVerity()
+    dev = adb_commands.AdbCommands()
+    dev.ConnectDevice(handle=usb, banner=BANNER)
+    dev.DisableVerity()
 
 class FilesyncAdbTest(BaseAdbTest):
 
@@ -202,7 +213,7 @@ class FilesyncAdbTest(BaseAdbTest):
     return usb
 
   def testPush(self):
-    filedata = u'alo there, govnah'
+    filedata = b'alo there, govnah'
     mtime = 100
 
     send = [
@@ -213,8 +224,9 @@ class FilesyncAdbTest(BaseAdbTest):
     data = b'OKAY\0\0\0\0'
     usb = self._ExpectSyncCommand([b''.join(send)], [data])
 
-    adb_commands = self._Connect(usb)
-    adb_commands.Push(io.StringIO(filedata), '/data', mtime=mtime)
+    dev = adb_commands.AdbCommands()
+    dev.ConnectDevice(handle=usb, banner=BANNER)
+    dev.Push(BytesIO(filedata), '/data', mtime=mtime)
 
   def testPull(self):
     filedata = b"g'ddayta, govnah"
@@ -225,8 +237,9 @@ class FilesyncAdbTest(BaseAdbTest):
         self._MakeWriteSyncPacket(b'DONE'),
     ]
     usb = self._ExpectSyncCommand([recv], [b''.join(data)])
-    adb_commands = self._Connect(usb)
-    self.assertEqual(filedata, adb_commands.Pull('/data'))
+    dev = adb_commands.AdbCommands()
+    dev.ConnectDevice(handle=usb, banner=BANNER)
+    self.assertEqual(filedata, dev.Pull('/data'))
 
 
 class TcpTimeoutAdbTest(BaseAdbTest):
@@ -244,13 +257,15 @@ class TcpTimeoutAdbTest(BaseAdbTest):
   
   def _run_shell(self, cmd, timeout_ms=None):
     tcp = self._ExpectCommand(b'shell', cmd)
-    adb_commands = self._Connect(tcp)
-    adb_commands.Shell(cmd, timeout_ms=timeout_ms)
+    dev = adb_commands.AdbCommands()
+    dev.ConnectDevice(handle=tcp, banner=BANNER)
+    dev.Shell(cmd, timeout_ms=timeout_ms)
 
   def testConnect(self):
     tcp = common_stub.StubTcp()
     self._ExpectConnection(tcp)
-    adb_commands.AdbCommands.Connect(tcp, BANNER)
+    dev = adb_commands.AdbCommands()
+    dev.ConnectDevice(handle=tcp, banner=BANNER)
 
   def testTcpTimeout(self):
     timeout_ms = 1  
