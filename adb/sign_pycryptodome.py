@@ -4,10 +4,10 @@ from Crypto.Hash import SHA256
 from Crypto.PublicKey import RSA
 from Crypto.Signature import pkcs1_15
 
+
 class PycryptodomeAuthSigner(adb_protocol.AuthSigner):
 
     def __init__(self, rsa_key_path=None):
-
         super(PycryptodomeAuthSigner, self).__init__()
 
         if rsa_key_path:

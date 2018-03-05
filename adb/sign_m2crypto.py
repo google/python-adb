@@ -18,17 +18,16 @@ from adb import adb_protocol
 
 
 class M2CryptoSigner(adb_protocol.AuthSigner):
-  """AuthSigner using M2Crypto."""
+    """AuthSigner using M2Crypto."""
 
-  def __init__(self, rsa_key_path):
-    with open(rsa_key_path + '.pub') as rsa_pub_file:
-      self.public_key = rsa_pub_file.read()
+    def __init__(self, rsa_key_path):
+        with open(rsa_key_path + '.pub') as rsa_pub_file:
+            self.public_key = rsa_pub_file.read()
 
-    self.rsa_key = RSA.load_key(rsa_key_path)
+        self.rsa_key = RSA.load_key(rsa_key_path)
 
-  def Sign(self, data):
-    return self.rsa_key.sign(data, 'sha1')
+    def Sign(self, data):
+        return self.rsa_key.sign(data, 'sha1')
 
-  def GetPublicKey(self):
-    return self.public_key
-
+    def GetPublicKey(self):
+        return self.public_key

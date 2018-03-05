@@ -38,355 +38,356 @@ PROTOCOL = 0x01
 # pylint: disable=invalid-name
 DeviceIsAvailable = common.InterfaceMatcher(CLASS, SUBCLASS, PROTOCOL)
 
-
 try:
-  # Imported locally to keep compatibility with previous code.
-  from adb.sign_m2crypto import M2CryptoSigner
+    # Imported locally to keep compatibility with previous code.
+    from adb.sign_m2crypto import M2CryptoSigner
 except ImportError:
-  # Ignore this error when M2Crypto is not installed, there are other options.
-  pass
+    # Ignore this error when M2Crypto is not installed, there are other options.
+    pass
 
 
 class AdbCommands(object):
-  """Exposes adb-like methods for use.
+    """Exposes adb-like methods for use.
 
-  Some methods are more-pythonic and/or have more options.
-  """
-  protocol_handler = adb_protocol.AdbMessage
-  filesync_handler = filesync_protocol.FilesyncProtocol
-
-  def __init__(self):
-
-    self.__reset()
-
-  def __reset(self):
-    self.build_props = None
-    self._handle = None
-    self._device_state = None
-
-    # Connection table tracks each open AdbConnection objects per service type for program functions
-    # that choose to persist an AdbConnection object for their functionality, using
-    # self._get_service_connection
-    self._service_connections = {}
-
-  def _get_service_connection(self, service, service_command=None, create=True, timeout_ms=None):
+    Some methods are more-pythonic and/or have more options.
     """
-    Based on the service, get the AdbConnection for that service or create one if it doesnt exist
+    protocol_handler = adb_protocol.AdbMessage
+    filesync_handler = filesync_protocol.FilesyncProtocol
 
-    :param service:
-    :param service_command: Additional service parameters to append
-    :param create: If False, dont create a connection if it does not exist
-    :return:
-    """
+    def __init__(self):
 
-    connection = self._service_connections.get(service, None)
+        self.__reset()
 
-    if connection:
-      return connection
+    def __reset(self):
+        self.build_props = None
+        self._handle = None
+        self._device_state = None
 
-    if not connection and not create:
-      return None
+        # Connection table tracks each open AdbConnection objects per service type for program functions
+        # that choose to persist an AdbConnection object for their functionality, using
+        # self._get_service_connection
+        self._service_connections = {}
 
-    if service_command:
-      destination_str = b'%s:%s' % (service, service_command)
-    else:
-      destination_str = service
+    def _get_service_connection(self, service, service_command=None, create=True, timeout_ms=None):
+        """
+        Based on the service, get the AdbConnection for that service or create one if it doesnt exist
 
-    connection = self.protocol_handler.Open(
-      self._handle, destination=destination_str, timeout_ms=timeout_ms)
+        :param service:
+        :param service_command: Additional service parameters to append
+        :param create: If False, dont create a connection if it does not exist
+        :return:
+        """
 
-    self._service_connections.update({service: connection})
+        connection = self._service_connections.get(service, None)
 
-    return connection
+        if connection:
+            return connection
 
-  def ConnectDevice(self, port_path=None, serial=None, default_timeout_ms=None, **kwargs):
-    """Convenience function to setup a transport handle for the adb device from 
-         usb path or serial then connect to it.
+        if not connection and not create:
+            return None
 
-    Args:
-      port_path: The filename of usb port to use.
-      serial: The serial number of the device to use.
-      default_timeout_ms: The default timeout in milliseconds to use.
-      kwargs: handle: Device handle to use (instance of common.TcpHandle or common.UsbHandle)
-              banner: Connection banner to pass to the remote device
-              rsa_keys: List of AuthSigner subclass instances to be used for
-                  authentication. The device can either accept one of these via the Sign
-                  method, or we will send the result of GetPublicKey from the first one
-                  if the device doesn't accept any of them.
-              auth_timeout_ms: Timeout to wait for when sending a new public key. This
-                  is only relevant when we send a new public key. The device shows a
-                  dialog and this timeout is how long to wait for that dialog. If used
-                  in automation, this should be low to catch such a case as a failure
-                  quickly; while in interactive settings it should be high to allow
-                  users to accept the dialog. We default to automation here, so it's low
-                  by default.
+        if service_command:
+            destination_str = b'%s:%s' % (service, service_command)
+        else:
+            destination_str = service
 
-    If serial specifies a TCP address:port, then a TCP connection is
-    used instead of a USB connection.
-    """
+        connection = self.protocol_handler.Open(
+            self._handle, destination=destination_str, timeout_ms=timeout_ms)
 
-    # If there isnt a handle override (used by tests), build one here
-    if 'handle' in kwargs:
-      self._handle = kwargs.pop('handle')
-    elif serial and b':' in serial:
-      self._handle = common.TcpHandle(serial, timeout_ms=default_timeout_ms)
-    else:
-      self._handle = common.UsbHandle.FindAndOpen(
-            DeviceIsAvailable, port_path=port_path, serial=serial,
-            timeout_ms=default_timeout_ms)
+        self._service_connections.update({service: connection})
 
-    self._Connect(**kwargs)
+        return connection
 
-    return self
+    def ConnectDevice(self, port_path=None, serial=None, default_timeout_ms=None, **kwargs):
+        """Convenience function to setup a transport handle for the adb device from
+             usb path or serial then connect to it.
 
-  def Close(self):
-    for conn in list(self._service_connections.values()):
-      if conn:
-        try:
-          conn.Close()
-        except:
-          pass
+        Args:
+          port_path: The filename of usb port to use.
+          serial: The serial number of the device to use.
+          default_timeout_ms: The default timeout in milliseconds to use.
+          kwargs: handle: Device handle to use (instance of common.TcpHandle or common.UsbHandle)
+                  banner: Connection banner to pass to the remote device
+                  rsa_keys: List of AuthSigner subclass instances to be used for
+                      authentication. The device can either accept one of these via the Sign
+                      method, or we will send the result of GetPublicKey from the first one
+                      if the device doesn't accept any of them.
+                  auth_timeout_ms: Timeout to wait for when sending a new public key. This
+                      is only relevant when we send a new public key. The device shows a
+                      dialog and this timeout is how long to wait for that dialog. If used
+                      in automation, this should be low to catch such a case as a failure
+                      quickly; while in interactive settings it should be high to allow
+                      users to accept the dialog. We default to automation here, so it's low
+                      by default.
 
-    if self._handle:
-      self._handle.Close()
+        If serial specifies a TCP address:port, then a TCP connection is
+        used instead of a USB connection.
+        """
 
-    self.__reset()
+        # If there isnt a handle override (used by tests), build one here
+        if 'handle' in kwargs:
+            self._handle = kwargs.pop('handle')
+        elif serial and b':' in serial:
+            self._handle = common.TcpHandle(serial, timeout_ms=default_timeout_ms)
+        else:
+            self._handle = common.UsbHandle.FindAndOpen(
+                DeviceIsAvailable, port_path=port_path, serial=serial,
+                timeout_ms=default_timeout_ms)
 
-  def _Connect(self, banner=None, **kwargs):
-    """Connect to the device.
+        self._Connect(**kwargs)
 
-    Args:
-      banner: See protocol_handler.Connect.
-      **kwargs: See protocol_handler.Connect and adb_commands.ConnectDevice for kwargs.
-           Includes handle, rsa_keys, and auth_timeout_ms.
-    Returns:
-      An instance of this class if the device connected successfully.
-    """
+        return self
 
-    if not banner:
-      banner = socket.gethostname().encode()
+    def Close(self):
+        for conn in list(self._service_connections.values()):
+            if conn:
+                try:
+                    conn.Close()
+                except:
+                    pass
 
-    conn_str = self.protocol_handler.Connect(self._handle, banner=banner, **kwargs)
+        if self._handle:
+            self._handle.Close()
 
-    # Remove banner and colons after device state (state::banner)
-    parts = conn_str.split(b'::')
-    self._device_state = parts[0]
+        self.__reset()
 
-    # Break out the build prop info
-    self.build_props = str(parts[1].split(b';'))
+    def _Connect(self, banner=None, **kwargs):
+        """Connect to the device.
 
-    return True
+        Args:
+          banner: See protocol_handler.Connect.
+          **kwargs: See protocol_handler.Connect and adb_commands.ConnectDevice for kwargs.
+               Includes handle, rsa_keys, and auth_timeout_ms.
+        Returns:
+          An instance of this class if the device connected successfully.
+        """
 
-  @classmethod
-  def Devices(cls):
-    """Get a generator of UsbHandle for devices available."""
-    return common.UsbHandle.FindDevices(DeviceIsAvailable)
+        if not banner:
+            banner = socket.gethostname().encode()
 
-  def GetState(self):
-    return self._device_state
+        conn_str = self.protocol_handler.Connect(self._handle, banner=banner, **kwargs)
 
-  def Install(self, apk_path, destination_dir='', timeout_ms=None, replace_existing=True, transfer_progress_callback=None):
-    """Install an apk to the device.
+        # Remove banner and colons after device state (state::banner)
+        parts = conn_str.split(b'::')
+        self._device_state = parts[0]
 
-    Doesn't support verifier file, instead allows destination directory to be
-    overridden.
+        # Break out the build prop info
+        self.build_props = str(parts[1].split(b';'))
 
-    Args:
-      apk_path: Local path to apk to install.
-      destination_dir: Optional destination directory. Use /system/app/ for
-        persistent applications.
-      replace_existing: whether to replace existing application
-      timeout_ms: Expected timeout for pushing and installing.
-      transfer_progress_callback: callback method that accepts filename, bytes_written and total_bytes of APK transfer
+        return True
 
-    Returns:
-      The pm install output.
-    """
-    if not destination_dir:
-      destination_dir = '/data/local/tmp/'
-    basename = os.path.basename(apk_path)
-    destination_path = posixpath.join(destination_dir, basename)
-    self.Push(apk_path, destination_path, timeout_ms=timeout_ms, progress_callback=transfer_progress_callback)
-    
-    cmd = ['pm install']
-    if replace_existing:
-      cmd.append('-r')
-    cmd.append('"{}"'.format(destination_path))
-    return self.Shell(' '.join(cmd), timeout_ms=timeout_ms)
-  
-  def Uninstall(self, package_name, keep_data=False, timeout_ms=None):
-    """Removes a package from the device.
+    @classmethod
+    def Devices(cls):
+        """Get a generator of UsbHandle for devices available."""
+        return common.UsbHandle.FindDevices(DeviceIsAvailable)
 
-    Args:
-      package_name: Package name of target package.
-      keep_data: whether to keep the data and cache directories
-      timeout_ms: Expected timeout for pushing and installing.
+    def GetState(self):
+        return self._device_state
 
-    Returns:
-      The pm uninstall output.
-    """
-    cmd = ['pm uninstall']
-    if keep_data:
-      cmd.append('-k')
-    cmd.append('"%s"' % package_name)
-    return self.Shell(' '.join(cmd), timeout_ms=timeout_ms)
+    def Install(self, apk_path, destination_dir='', timeout_ms=None, replace_existing=True,
+                transfer_progress_callback=None):
+        """Install an apk to the device.
 
-  def Push(self, source_file, device_filename, mtime='0', timeout_ms=None, progress_callback=None):
-    """Push a file or directory to the device.
+        Doesn't support verifier file, instead allows destination directory to be
+        overridden.
 
-    Args:
-      source_file: Either a filename, a directory or file-like object to push to
-                   the device.
-      device_filename: Destination on the device to write to.
-      mtime: Optional, modification time to set on the file.
-      timeout_ms: Expected timeout for any part of the push.
-      progress_callback: callback method that accepts filename, bytes_written and total_bytes,
-                         total_bytes will be -1 for file-like objects
-    """
-    if isinstance(source_file, str):
-      if os.path.isdir(source_file):
-        self.Shell("mkdir " + device_filename)
-        for f in os.listdir(source_file):
-          self.Push(os.path.join(source_file, f), device_filename + '/' + f, progress_callback=progress_callback)
-        return
-      source_file = open(source_file, "rb")
+        Args:
+          apk_path: Local path to apk to install.
+          destination_dir: Optional destination directory. Use /system/app/ for
+            persistent applications.
+          replace_existing: whether to replace existing application
+          timeout_ms: Expected timeout for pushing and installing.
+          transfer_progress_callback: callback method that accepts filename, bytes_written and total_bytes of APK transfer
 
-    with source_file:
-      connection = self.protocol_handler.Open(
-        self._handle, destination=b'sync:', timeout_ms=timeout_ms)
-      self.filesync_handler.Push(connection, source_file, device_filename,
-                               mtime=int(mtime), progress_callback=progress_callback)
-    connection.Close()
+        Returns:
+          The pm install output.
+        """
+        if not destination_dir:
+            destination_dir = '/data/local/tmp/'
+        basename = os.path.basename(apk_path)
+        destination_path = posixpath.join(destination_dir, basename)
+        self.Push(apk_path, destination_path, timeout_ms=timeout_ms, progress_callback=transfer_progress_callback)
 
-  def Pull(self, device_filename, dest_file=None, timeout_ms=None, progress_callback=None):
-    """Pull a file from the device.
+        cmd = ['pm install']
+        if replace_existing:
+            cmd.append('-r')
+        cmd.append('"{}"'.format(destination_path))
+        return self.Shell(' '.join(cmd), timeout_ms=timeout_ms)
 
-    Args:
-      device_filename: Filename on the device to pull.
-      dest_file: If set, a filename or writable file-like object.
-      timeout_ms: Expected timeout for any part of the pull.
-      progress_callback: callback method that accepts filename, bytes_written and total_bytes,
-                         total_bytes will be -1 for file-like objects
+    def Uninstall(self, package_name, keep_data=False, timeout_ms=None):
+        """Removes a package from the device.
 
-    Returns:
-      The file data if dest_file is not set. Otherwise, True if the destination file exists
-    """
-    if not dest_file:
-      dest_file = io.BytesIO()
-    elif isinstance(dest_file, str):
-      dest_file = open(dest_file, 'w')
-    else:
-      raise ValueError("destfile is of unknown type")
+        Args:
+          package_name: Package name of target package.
+          keep_data: whether to keep the data and cache directories
+          timeout_ms: Expected timeout for pushing and installing.
 
-    conn = self.protocol_handler.Open(
-        self._handle, destination=b'sync:', timeout_ms=timeout_ms)
+        Returns:
+          The pm uninstall output.
+        """
+        cmd = ['pm uninstall']
+        if keep_data:
+            cmd.append('-k')
+        cmd.append('"%s"' % package_name)
+        return self.Shell(' '.join(cmd), timeout_ms=timeout_ms)
 
-    self.filesync_handler.Pull(conn, device_filename, dest_file, progress_callback)
+    def Push(self, source_file, device_filename, mtime='0', timeout_ms=None, progress_callback=None):
+        """Push a file or directory to the device.
 
-    conn.Close()
-    if isinstance(dest_file, io.BytesIO):
-      return dest_file.getvalue()
-    else:
-      dest_file.close()
-      return os.path.exists(dest_file)
+        Args:
+          source_file: Either a filename, a directory or file-like object to push to
+                       the device.
+          device_filename: Destination on the device to write to.
+          mtime: Optional, modification time to set on the file.
+          timeout_ms: Expected timeout for any part of the push.
+          progress_callback: callback method that accepts filename, bytes_written and total_bytes,
+                             total_bytes will be -1 for file-like objects
+        """
+        if isinstance(source_file, str):
+            if os.path.isdir(source_file):
+                self.Shell("mkdir " + device_filename)
+                for f in os.listdir(source_file):
+                    self.Push(os.path.join(source_file, f), device_filename + '/' + f,
+                              progress_callback=progress_callback)
+                return
+            source_file = open(source_file, "rb")
 
-  def Stat(self, device_filename):
-    """Get a file's stat() information."""
-    connection = self.protocol_handler.Open(self._handle, destination=b'sync:')
-    mode, size, mtime = self.filesync_handler.Stat(
-        connection, device_filename)
-    connection.Close()
-    return mode, size, mtime
+        with source_file:
+            connection = self.protocol_handler.Open(
+                self._handle, destination=b'sync:', timeout_ms=timeout_ms)
+            self.filesync_handler.Push(connection, source_file, device_filename,
+                                       mtime=int(mtime), progress_callback=progress_callback)
+        connection.Close()
 
-  def List(self, device_path):
-    """Return a directory listing of the given path.
+    def Pull(self, device_filename, dest_file=None, timeout_ms=None, progress_callback=None):
+        """Pull a file from the device.
 
-    Args:
-      device_path: Directory to list.
-    """
-    connection = self.protocol_handler.Open(self._handle, destination=b'sync:')
-    listing = self.filesync_handler.List(connection, device_path)
-    connection.Close()
-    return listing
+        Args:
+          device_filename: Filename on the device to pull.
+          dest_file: If set, a filename or writable file-like object.
+          timeout_ms: Expected timeout for any part of the pull.
+          progress_callback: callback method that accepts filename, bytes_written and total_bytes,
+                             total_bytes will be -1 for file-like objects
 
-  def Reboot(self, destination=b''):
-    """Reboot the device.
+        Returns:
+          The file data if dest_file is not set. Otherwise, True if the destination file exists
+        """
+        if not dest_file:
+            dest_file = io.BytesIO()
+        elif isinstance(dest_file, str):
+            dest_file = open(dest_file, 'w')
+        else:
+            raise ValueError("destfile is of unknown type")
 
-    Args:
-      destination: Specify 'bootloader' for fastboot.
-    """
-    self.protocol_handler.Open(self._handle, b'reboot:%s' % destination)
+        conn = self.protocol_handler.Open(
+            self._handle, destination=b'sync:', timeout_ms=timeout_ms)
 
-  def RebootBootloader(self):
-    """Reboot device into fastboot."""
-    self.Reboot(b'bootloader')
+        self.filesync_handler.Pull(conn, device_filename, dest_file, progress_callback)
 
-  def Remount(self):
-    """Remount / as read-write."""
-    return self.protocol_handler.Command(self._handle, service=b'remount')
+        conn.Close()
+        if isinstance(dest_file, io.BytesIO):
+            return dest_file.getvalue()
+        else:
+            dest_file.close()
+            return os.path.exists(dest_file)
 
-  def Root(self):
-    """Restart adbd as root on the device."""
-    return self.protocol_handler.Command(self._handle, service=b'root')
+    def Stat(self, device_filename):
+        """Get a file's stat() information."""
+        connection = self.protocol_handler.Open(self._handle, destination=b'sync:')
+        mode, size, mtime = self.filesync_handler.Stat(
+            connection, device_filename)
+        connection.Close()
+        return mode, size, mtime
 
-  def EnableVerity(self):
-    """Re-enable dm-verity checking on userdebug builds"""
-    return self.protocol_handler.Command(self._handle, service=b'enable-verity')
+    def List(self, device_path):
+        """Return a directory listing of the given path.
 
-  def DisableVerity(self):
-    """Disable dm-verity checking on userdebug builds"""
-    return self.protocol_handler.Command(self._handle, service=b'disable-verity')
+        Args:
+          device_path: Directory to list.
+        """
+        connection = self.protocol_handler.Open(self._handle, destination=b'sync:')
+        listing = self.filesync_handler.List(connection, device_path)
+        connection.Close()
+        return listing
 
-  def Shell(self, command, timeout_ms=None):
-    """Run command on the device, returning the output.
+    def Reboot(self, destination=b''):
+        """Reboot the device.
 
-    Args:
-      command: Shell command to run
-      timeout_ms: Maximum time to allow the command to run.
-    """
-    return self.protocol_handler.Command(
-        self._handle, service=b'shell', command=command,
-        timeout_ms=timeout_ms)
+        Args:
+          destination: Specify 'bootloader' for fastboot.
+        """
+        self.protocol_handler.Open(self._handle, b'reboot:%s' % destination)
 
-  def StreamingShell(self, command, timeout_ms=None):
-    """Run command on the device, yielding each line of output.
+    def RebootBootloader(self):
+        """Reboot device into fastboot."""
+        self.Reboot(b'bootloader')
 
-    Args:
-      command: Command to run on the target.
-      timeout_ms: Maximum time to allow the command to run.
+    def Remount(self):
+        """Remount / as read-write."""
+        return self.protocol_handler.Command(self._handle, service=b'remount')
 
-    Yields:
-      The responses from the shell command.
-    """
-    return self.protocol_handler.StreamingCommand(
-        self._handle, service=b'shell', command=command,
-        timeout_ms=timeout_ms)
+    def Root(self):
+        """Restart adbd as root on the device."""
+        return self.protocol_handler.Command(self._handle, service=b'root')
 
-  def Logcat(self, options, timeout_ms=None):
-    """Run 'shell logcat' and stream the output to stdout.
+    def EnableVerity(self):
+        """Re-enable dm-verity checking on userdebug builds"""
+        return self.protocol_handler.Command(self._handle, service=b'enable-verity')
 
-    Args:
-      options: Arguments to pass to 'logcat'.
-      timeout_ms: Maximum time to allow the command to run.
-    """
-    return self.StreamingShell('logcat %s' % options, timeout_ms)
+    def DisableVerity(self):
+        """Disable dm-verity checking on userdebug builds"""
+        return self.protocol_handler.Command(self._handle, service=b'disable-verity')
 
-  def InteractiveShell(self, cmd=None, strip_cmd=True, delim=None, strip_delim=True):
-    """Get stdout from the currently open interactive shell and optionally run a command
-        on the device, returning all output.
+    def Shell(self, command, timeout_ms=None):
+        """Run command on the device, returning the output.
 
-    Args:
-      command: Optional. Command to run on the target.
-      strip_cmd: Optional (default True). Strip command name from stdout.
-      delim: Optional. Delimiter to look for in the output to know when to stop expecting more output
-      (usually the shell prompt)
-      strip_delim: Optional (default True): Strip the provided delimiter from the output
+        Args:
+          command: Shell command to run
+          timeout_ms: Maximum time to allow the command to run.
+        """
+        return self.protocol_handler.Command(
+            self._handle, service=b'shell', command=command,
+            timeout_ms=timeout_ms)
 
-    Returns:
-      The stdout from the shell command.
-    """
-    conn = self._get_service_connection(b'shell:')
+    def StreamingShell(self, command, timeout_ms=None):
+        """Run command on the device, yielding each line of output.
 
-    return self.protocol_handler.InteractiveShellCommand(
-      conn, cmd=cmd, strip_cmd=strip_cmd,
-      delim=delim, strip_delim=strip_delim)
+        Args:
+          command: Command to run on the target.
+          timeout_ms: Maximum time to allow the command to run.
+
+        Yields:
+          The responses from the shell command.
+        """
+        return self.protocol_handler.StreamingCommand(
+            self._handle, service=b'shell', command=command,
+            timeout_ms=timeout_ms)
+
+    def Logcat(self, options, timeout_ms=None):
+        """Run 'shell logcat' and stream the output to stdout.
+
+        Args:
+          options: Arguments to pass to 'logcat'.
+          timeout_ms: Maximum time to allow the command to run.
+        """
+        return self.StreamingShell('logcat %s' % options, timeout_ms)
+
+    def InteractiveShell(self, cmd=None, strip_cmd=True, delim=None, strip_delim=True):
+        """Get stdout from the currently open interactive shell and optionally run a command
+            on the device, returning all output.
+
+        Args:
+          cmd: Optional. Command to run on the target.
+          strip_cmd: Optional (default True). Strip command name from stdout.
+          delim: Optional. Delimiter to look for in the output to know when to stop expecting more output
+          (usually the shell prompt)
+          strip_delim: Optional (default True): Strip the provided delimiter from the output
+
+        Returns:
+          The stdout from the shell command.
+        """
+        conn = self._get_service_connection(b'shell:')
+
+        return self.protocol_handler.InteractiveShellCommand(
+            conn, cmd=cmd, strip_cmd=strip_cmd,
+            delim=delim, strip_delim=strip_delim)
