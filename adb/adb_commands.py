@@ -184,8 +184,8 @@ class AdbCommands(object):
     def GetState(self):
         return self._device_state
 
-    def Install(self, apk_path, destination_dir='', timeout_ms=None, replace_existing=True,
-                transfer_progress_callback=None):
+    def Install(self, apk_path, destination_dir='', replace_existing=True,
+                grant_permissions=False, timeout_ms=None, transfer_progress_callback=None):
         """Install an apk to the device.
 
         Doesn't support verifier file, instead allows destination directory to be
@@ -196,6 +196,7 @@ class AdbCommands(object):
           destination_dir: Optional destination directory. Use /system/app/ for
             persistent applications.
           replace_existing: whether to replace existing application
+          grant_permissions: If True, grant all permissions to the app specified in its manifest
           timeout_ms: Expected timeout for pushing and installing.
           transfer_progress_callback: callback method that accepts filename, bytes_written and total_bytes of APK transfer
 
@@ -209,10 +210,19 @@ class AdbCommands(object):
         self.Push(apk_path, destination_path, timeout_ms=timeout_ms, progress_callback=transfer_progress_callback)
 
         cmd = ['pm install']
+        if grant_permissions:
+            cmd.append('-g')
         if replace_existing:
             cmd.append('-r')
         cmd.append('"{}"'.format(destination_path))
-        return self.Shell(' '.join(cmd), timeout_ms=timeout_ms)
+
+        ret = self.Shell(' '.join(cmd), timeout_ms=timeout_ms)
+
+        # Remove the apk
+        rm_cmd = ['rm', destination_path]
+        rmret = self.Shell(' '.join(rm_cmd), timeout_ms=timeout_ms)
+
+        return ret
 
     def Uninstall(self, package_name, keep_data=False, timeout_ms=None):
         """Removes a package from the device.
@@ -229,6 +239,7 @@ class AdbCommands(object):
         if keep_data:
             cmd.append('-k')
         cmd.append('"%s"' % package_name)
+
         return self.Shell(' '.join(cmd), timeout_ms=timeout_ms)
 
     def Push(self, source_file, device_filename, mtime='0', timeout_ms=None, progress_callback=None):
@@ -243,6 +254,7 @@ class AdbCommands(object):
           progress_callback: callback method that accepts filename, bytes_written and total_bytes,
                              total_bytes will be -1 for file-like objects
         """
+
         if isinstance(source_file, str):
             if os.path.isdir(source_file):
                 self.Shell("mkdir " + device_filename)
