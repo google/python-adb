@@ -451,7 +451,7 @@ class AdbMessage(object):
           The stdout from the shell command.
         """
 
-        if not isinstance(delim, bytes):
+        if delim is not None and not isinstance(delim, bytes):
             delim = delim.encode('utf-8')
 
         # Delimiter may be shell@hammerhead:/ $
