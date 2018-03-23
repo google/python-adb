@@ -24,7 +24,7 @@ from rsa import pkcs1
 # hashing algo for this.
 class _Accum(object):
     def __init__(self):
-        self._buf = ''
+        self._buf = b''
 
     def update(self, msg):
         self._buf += msg
