@@ -40,7 +40,8 @@ from adb import sign_m2crypto
 signer = sign_m2crypto.M2CryptoSigner(
     op.expanduser('~/.android/adbkey'))
 # Connect to the device
-device = adb_commands.AdbCommands.ConnectDevice(
+device = adb_commands.AdbCommands()
+device.ConnectDevice(
     rsa_keys=[signer])
 # Now we can use Shell, Pull, Push, etc!
 for i in xrange(10):
