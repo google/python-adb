@@ -19,7 +19,7 @@ rsa_signer_library = 'M2Crypto>=0.21.1,<=0.26.4'
 try:
   import rsa
 
-  rsa_signer_library = 'python-rsa'
+  rsa_signer_library = 'rsa'
 except ImportError:
     try:
         from Crypto.Hash import SHA256
