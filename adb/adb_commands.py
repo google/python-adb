@@ -242,7 +242,7 @@ class AdbCommands(object):
 
         return self.Shell(' '.join(cmd), timeout_ms=timeout_ms)
 
-    def Push(self, source_file, device_filename, mtime='0', timeout_ms=None, progress_callback=None):
+    def Push(self, source_file, device_filename, mtime='0', timeout_ms=None, progress_callback=None, st_mode=None):
         """Push a file or directory to the device.
 
         Args:
@@ -251,6 +251,7 @@ class AdbCommands(object):
           device_filename: Destination on the device to write to.
           mtime: Optional, modification time to set on the file.
           timeout_ms: Expected timeout for any part of the push.
+          st_mode: stat mode for filename
           progress_callback: callback method that accepts filename, bytes_written and total_bytes,
                              total_bytes will be -1 for file-like objects
         """
@@ -267,8 +268,11 @@ class AdbCommands(object):
         with source_file:
             connection = self.protocol_handler.Open(
                 self._handle, destination=b'sync:', timeout_ms=timeout_ms)
+            kwargs={}
+            if st_mode is not None:
+                kwargs['st_mode'] = st_mode
             self.filesync_handler.Push(connection, source_file, device_filename,
-                                       mtime=int(mtime), progress_callback=progress_callback)
+                                       mtime=int(mtime), progress_callback=progress_callback, **kwargs)
         connection.Close()
 
     def Pull(self, device_filename, dest_file=None, timeout_ms=None, progress_callback=None):
