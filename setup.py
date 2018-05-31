@@ -34,7 +34,7 @@ except ImportError:
 setup(
     name = 'adb',
     packages = ['adb'],
-    version = '1.2.0',
+    version = '1.3.0',
     author = 'Fahrzin Hemmati',
     author_email = 'fahhem@gmail.com',
     maintainer = 'Fahrzin Hemmati',
