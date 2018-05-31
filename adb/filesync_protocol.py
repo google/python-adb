@@ -46,6 +46,10 @@ class PushFailedError(Exception):
     """Pushing a file failed for some reason."""
 
 
+class PullFailedError(Exception):
+    """Pulling a file failed for some reason."""
+
+
 DeviceFile = collections.namedtuple('DeviceFile', [
     'filename', 'mode', 'size', 'mtime'])
 
@@ -85,13 +89,16 @@ class FilesyncProtocol(object):
             next(progress)
 
         cnxn = FileSyncConnection(connection, b'<2I')
-        cnxn.Send(b'RECV', filename)
-        for cmd_id, _, data in cnxn.ReadUntil((b'DATA',), b'DONE'):
-            if cmd_id == b'DONE':
-                break
-            dest_file.write(data)
-            if progress_callback:
-                progress.send(len(data))
+        try:
+            cnxn.Send(b'RECV', filename)
+            for cmd_id, _, data in cnxn.ReadUntil((b'DATA',), b'DONE'):
+                if cmd_id == b'DONE':
+                    break
+                dest_file.write(data)
+                if progress_callback:
+                    progress.send(len(data))
+        except usb_exceptions.CommonUsbError as e:
+            raise PullFailedError('Unable to pull file %s due to: %s' % (filename, e))
 
     @classmethod
     def _HandleProgress(cls, progress_callback):
