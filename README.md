@@ -19,6 +19,19 @@ unlike the Android project's ADB.
 
 ### Using as standalone tool
 
+Install using pip:
+
+```sh
+pip install adb
+```
+
+Once installed, two new binaries should be available: `pyadb` and `pyfastboot`.
+
+```sh
+pyadb devices
+pyadb shell ls /sdcard
+```
+
 Running `./make_tools.py` creates two files: `adb.zip` and `fastboot.zip`. They
 can be run similar to native `adb` and `fastboot` via the python interpreter:
 
@@ -85,6 +98,34 @@ for i in xrange(10):
 
  * Added TcpHandle (jameyhicks)
  * Various timing and other changes (alusco)
+
+#### 1.2.0
+
+ * Update to libusb1 1.6+ (bytearray output)
+ * Add support for Python 3.6
+ * Create adb.zip and fastboot.zip as executable tools.
+ * Add Travis CI integration
+ * Support multiple crypto libraries (M2Crypto + python-rsa)
+ * Push directories
+
+#### 1.3.0
+
+##### Backwards Incompatible changes
+`adb_commands.AdbCommands()` is now a normal class rather than a collection of staticmethods. Using the following example code to get started:
+```py
+device = adb_commands.AdbCommands()
+device.ConnectDevice(rsa_keys=[signer])
+```
+
+##### Other changes/fixes
+Many changes since 1.2.0!
+
+* New entrypoints exposed by pip: pyadb and pyfastboot
+* Lots of Python 2/3 compatibility fixes
+* Windows compatibility fixes
+* Transfer progress available (`Push`, `Pull`, `Install`)
+* Handle some misbehaving devices (double CLSE bug)
+* New options for `Push` and `Install` (`st_mode` and `grant_permissions`)
 
 
 [coverage_img]: https://coveralls.io/repos/github/google/python-adb/badge.svg?branch=master
