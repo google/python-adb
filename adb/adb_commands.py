@@ -291,7 +291,7 @@ class AdbCommands(object):
         if not dest_file:
             dest_file = io.BytesIO()
         elif isinstance(dest_file, str):
-            dest_file = open(dest_file, 'w')
+            dest_file = open(dest_file, 'wb')
         else:
             raise ValueError("destfile is of unknown type")
 
