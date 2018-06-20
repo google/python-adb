@@ -292,6 +292,8 @@ class AdbCommands(object):
             dest_file = io.BytesIO()
         elif isinstance(dest_file, str):
             dest_file = open(dest_file, 'wb')
+        elif isinstance(dest_file, file):
+            pass
         else:
             raise ValueError("destfile is of unknown type")
 
@@ -305,7 +307,10 @@ class AdbCommands(object):
             return dest_file.getvalue()
         else:
             dest_file.close()
-            return os.path.exists(dest_file)
+            if hasattr(dest_file, 'name'):
+                return os.path.exists(dest_file.name)
+            # We don't know what the path is, so we just assume it exists.
+            return True
 
     def Stat(self, device_filename):
         """Get a file's stat() information."""
