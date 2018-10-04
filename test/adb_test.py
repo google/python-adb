@@ -17,10 +17,13 @@
 from io import BytesIO
 import struct
 import unittest
+from mock import mock
 
+
+from adb import common
 from adb import adb_commands
 from adb import adb_protocol
-from adb.usb_exceptions import TcpTimeoutException
+from adb.usb_exceptions import TcpTimeoutException, DeviceNotFoundError
 import common_stub
 
 
@@ -78,10 +81,9 @@ class BaseAdbTest(unittest.TestCase):
 
 
 class AdbTest(BaseAdbTest):
-
   @classmethod
   def _ExpectCommand(cls, service, command, *responses):
-    usb = common_stub.StubUsb()
+    usb = common_stub.StubUsb(device=None, setting=None)
     cls._ExpectConnection(usb)
     cls._ExpectOpen(usb, b'%s:%s\0' % (service, command))
 
@@ -91,11 +93,18 @@ class AdbTest(BaseAdbTest):
     return usb
 
   def testConnect(self):
-    usb = common_stub.StubUsb()
+    usb = common_stub.StubUsb(device=None, setting=None)
     self._ExpectConnection(usb)
 
     dev = adb_commands.AdbCommands()
     dev.ConnectDevice(handle=usb, banner=BANNER)
+
+  def testConnectSerialString(self):
+    dev = adb_commands.AdbCommands()
+
+    with mock.patch.object(common.UsbHandle, 'FindAndOpen', return_value=None):
+      with mock.patch.object(adb_commands.AdbCommands, '_Connect', return_value=None):
+        dev.ConnectDevice(serial='/dev/invalidHandle')
 
   def testSmallResponseShell(self):
     command = b'keepin it real'
@@ -196,7 +205,7 @@ class FilesyncAdbTest(BaseAdbTest):
 
   @classmethod
   def _ExpectSyncCommand(cls, write_commands, read_commands):
-    usb = common_stub.StubUsb()
+    usb = common_stub.StubUsb(device=None, setting=None)
     cls._ExpectConnection(usb)
     cls._ExpectOpen(usb, b'sync:\0')
 
@@ -246,7 +255,7 @@ class TcpTimeoutAdbTest(BaseAdbTest):
         
   @classmethod
   def _ExpectCommand(cls, service, command, *responses):
-    tcp = common_stub.StubTcp()
+    tcp = common_stub.StubTcp('10.0.0.123')
     cls._ExpectConnection(tcp)
     cls._ExpectOpen(tcp, b'%s:%s\0' % (service, command))
 
@@ -262,7 +271,7 @@ class TcpTimeoutAdbTest(BaseAdbTest):
     dev.Shell(cmd, timeout_ms=timeout_ms)
 
   def testConnect(self):
-    tcp = common_stub.StubTcp()
+    tcp = common_stub.StubTcp('10.0.0.123')
     self._ExpectConnection(tcp)
     dev = adb_commands.AdbCommands()
     dev.ConnectDevice(handle=tcp, banner=BANNER)
@@ -275,6 +284,32 @@ class TcpTimeoutAdbTest(BaseAdbTest):
             self._run_shell, 
             command, 
             timeout_ms=timeout_ms)
+
+
+class TcpHandleTest(unittest.TestCase):
+  def testInitWithHost(self):
+    tcp = common_stub.StubTcp('10.11.12.13')
+
+    self.assertEqual('10.11.12.13:5555', tcp._serial_number)
+    self.assertEqual(None, tcp._timeout_ms)
+
+  def testInitWithHostAndPort(self):
+    tcp = common_stub.StubTcp('10.11.12.13:5678')
+
+    self.assertEqual('10.11.12.13:5678', tcp._serial_number)
+    self.assertEqual(None, tcp._timeout_ms)
+
+  def testInitWithTimeout(self):
+    tcp = common_stub.StubTcp('10.0.0.2', timeout_ms=234.5)
+
+    self.assertEqual('10.0.0.2:5555', tcp._serial_number)
+    self.assertEqual(234.5, tcp._timeout_ms)
+
+  def testInitWithTimeoutInt(self):
+    tcp = common_stub.StubTcp('10.0.0.2', timeout_ms=234)
+
+    self.assertEqual('10.0.0.2:5555', tcp._serial_number)
+    self.assertEqual(234.0, tcp._timeout_ms)
 
 if __name__ == '__main__':
   unittest.main()

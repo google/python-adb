@@ -302,6 +302,11 @@ class AdbMessage(object):
           InvalidResponseError: When the device does authentication in an
               unexpected way.
         """
+        # In py3, convert unicode to bytes. In py2, convert str to bytes.
+        # It's later joined into a byte string, so in py2, this ends up kind of being a no-op.
+        if isinstance(banner, str):
+            banner = bytearray(banner, 'utf-8')
+
         msg = cls(
             command=b'CNXN', arg0=VERSION, arg1=MAX_ADB_DATA,
             data=b'host::%s\0' % banner)

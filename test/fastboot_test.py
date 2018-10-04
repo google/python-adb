@@ -26,7 +26,7 @@ from adb import fastboot
 class FastbootTest(unittest.TestCase):
 
   def setUp(self):
-    self.usb = common_stub.StubUsb()
+    self.usb = common_stub.StubUsb(device=None, setting=None)
 
   @staticmethod
   def _SumLengths(items):

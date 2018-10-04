@@ -127,12 +127,17 @@ class AdbCommands(object):
         # If there isnt a handle override (used by tests), build one here
         if 'handle' in kwargs:
             self._handle = kwargs.pop('handle')
-        elif serial and b':' in serial:
-            self._handle = common.TcpHandle(serial, timeout_ms=default_timeout_ms)
         else:
-            self._handle = common.UsbHandle.FindAndOpen(
-                DeviceIsAvailable, port_path=port_path, serial=serial,
-                timeout_ms=default_timeout_ms)
+            # if necessary, convert serial to a unicode string
+            if isinstance(serial, (bytes, bytearray)):
+                serial = serial.decode('utf-8')
+
+            if serial and ':' in serial:
+                self._handle = common.TcpHandle(serial, timeout_ms=default_timeout_ms)
+            else:
+                self._handle = common.UsbHandle.FindAndOpen(
+                    DeviceIsAvailable, port_path=port_path, serial=serial,
+                    timeout_ms=default_timeout_ms)
 
         self._Connect(**kwargs)
 
