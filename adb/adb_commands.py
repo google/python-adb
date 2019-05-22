@@ -40,9 +40,9 @@ DeviceIsAvailable = common.InterfaceMatcher(CLASS, SUBCLASS, PROTOCOL)
 
 try:
     # Imported locally to keep compatibility with previous code.
-    from adb.sign_m2crypto import M2CryptoSigner
+    from adb.sign_cryptography import CryptographySigner
 except ImportError:
-    # Ignore this error when M2Crypto is not installed, there are other options.
+    # Ignore this error when cryptography is not installed, there are other options.
     pass
 
 

@@ -27,9 +27,9 @@ from adb import adb_commands
 from adb import common_cli
 
 try:
-    from adb import sign_m2crypto
+    from adb import sign_cryptography
 
-    rsa_signer = sign_m2crypto.M2CryptoSigner
+    rsa_signer = sign_cryptography.CryptographySigner
 except ImportError:
     try:
         from adb import sign_pythonrsa
@@ -187,7 +187,7 @@ def main():
         if os.path.isfile(default):
             args.rsa_key_path = [default]
     if args.rsa_key_path and not rsa_signer:
-        parser.error('Please install either M2Crypto, python-rsa, or PycryptoDome')
+        parser.error('Please install either cryptography, python-rsa, or PycryptoDome')
 
     # Hacks so that the generated doc is nicer.
     if args.command_name == 'devices':

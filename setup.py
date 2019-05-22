@@ -15,7 +15,7 @@
 from setuptools import setup
 
 # Figure out if the system already has a supported Crypto library
-rsa_signer_library = 'M2Crypto>=0.21.1,<=0.26.4'
+rsa_signer_library = 'cryptography'
 try:
   import rsa
 

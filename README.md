@@ -46,11 +46,11 @@ A [presentation was made at PyCon 2016][pycon_preso], and here's some demo code:
 import os.path as op
 
 from adb import adb_commands
-from adb import sign_m2crypto
+from adb import sign_cryptography
 
 
 # KitKat+ devices require authentication
-signer = sign_m2crypto.M2CryptoSigner(
+signer = sign_cryptography.CryptographySigner(
     op.expanduser('~/.android/adbkey'))
 # Connect to the device
 device = adb_commands.AdbCommands()
@@ -83,7 +83,7 @@ for i in xrange(10):
   * libusb1 (1.0.16+)
   * python-libusb1 (1.2.0+)
   * `adb.zip`: one of:
-    * python-m2crypto (0.21.1+)
+    * py-cryptography
     * python-rsa (3.2+)
   * `fastboot.zip` (optional):
     * python-progressbar (2.3+)
