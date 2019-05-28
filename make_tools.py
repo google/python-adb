@@ -43,7 +43,7 @@ def main():
     z.write('adb/common.py')
     z.write('adb/common_cli.py')
     z.write('adb/filesync_protocol.py')
-    z.write('adb/sign_m2crypto.py')
+    z.write('adb/sign_cryptography.py')
     z.write('adb/sign_pythonrsa.py')
     z.write('adb/usb_exceptions.py')
   with zipfile.ZipFile('fastboot.zip', 'w', zipfile.ZIP_DEFLATED) as z:
