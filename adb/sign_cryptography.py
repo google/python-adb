@@ -35,3 +35,6 @@ class CryptographySigner(adb_protocol.AuthSigner):
     def Sign(self, data):
         return self.rsa_key.sign(
             data, padding.PKCS1v15(), utils.Prehashed(hashes.SHA1()))
+
+    def GetPublicKey(self):
+        return self.public_key
