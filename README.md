@@ -3,6 +3,8 @@ python-adb
 [![Coverage Status][coverage_img]][coverage_link]
 [![Build Status][build_img]][build_link]
 
+Note: This is not an official Google project. It is maintained by ex-Google engineers. For a better maintained option, look at [adb_shell](https://github.com/JeffLIrion/adb_shell).
+
 This repository contains a pure-python implementation of the ADB and Fastboot
 protocols, using libusb1 for USB communications.
 
